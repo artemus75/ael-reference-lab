@@ -1,0 +1,30 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Upgrade installed packages
+  ansible.builtin.apt:
+    upgrade: safe
+  become: true
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - qemu-guest-agent
+      - unzip
+      - dnsutils
+    state: present
+  become: true
+
+- name: Enable and start QEMU guest agent
+  ansible.builtin.systemd_service:
+    name: qemu-guest-agent
+    enabled: true
+    state: started
+  become: true

@@ -1,0 +1,101 @@
+---
+- name: Download Microsoft package repository configuration
+  ansible.builtin.get_url:
+    url: https://packages.microsoft.com/config/debian/13/packages-microsoft-prod.deb
+    dest: /tmp/packages-microsoft-prod.deb
+    mode: "0644"
+  become: true
+
+- name: Install Microsoft package repository configuration
+  ansible.builtin.apt:
+    deb: /tmp/packages-microsoft-prod.deb
+    state: present
+  become: true
+
+- name: Update apt cache after adding Microsoft repository
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+
+- name: Install ASP.NET Core 10 runtime
+  ansible.builtin.apt:
+    name: aspnetcore-runtime-10.0
+    state: present
+  become: true
+
+- name: Create Technitium system group
+  ansible.builtin.group:
+    name: "{{ technitium_service_user }}"
+    system: true
+    state: present
+  become: true
+
+- name: Create Technitium system user
+  ansible.builtin.user:
+    name: "{{ technitium_service_user }}"
+    group: "{{ technitium_service_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    state: present
+  become: true
+
+- name: Create Technitium directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ technitium_service_user }}"
+    group: "{{ technitium_service_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ technitium_install_dir }}"
+      mode: "0755"
+    - path: "{{ technitium_config_dir }}"
+      mode: "0750"
+    - path: "{{ technitium_log_dir }}"
+      mode: "0750"
+  become: true
+
+- name: Download pinned Technitium DNS Server artifact
+  ansible.builtin.get_url:
+    url: "{{ technitium_download_url }}"
+    dest: "/tmp/technitium-dns-{{ technitium_version }}.tar.gz"
+    checksum: "sha256:{{ technitium_download_sha256 }}"
+    mode: "0644"
+  become: true
+
+- name: Extract pinned Technitium DNS Server artifact
+  ansible.builtin.unarchive:
+    src: "/tmp/technitium-dns-{{ technitium_version }}.tar.gz"
+    dest: "{{ technitium_install_dir }}"
+    remote_src: true
+    owner: "{{ technitium_service_user }}"
+    group: "{{ technitium_service_user }}"
+    creates: "{{ technitium_install_dir }}/DnsServerApp.dll"
+  become: true
+
+- name: Install Technitium systemd service
+  ansible.builtin.copy:
+    src: "{{ technitium_install_dir }}/systemd.service"
+    dest: /etc/systemd/system/dns.service
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart Technitium DNS Server
+
+- name: Enable and start Technitium DNS Server
+  ansible.builtin.systemd_service:
+    name: dns.service
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
+
+- name: Wait for Technitium Web API
+  ansible.builtin.wait_for:
+    host: "127.0.0.1"
+    port: 5380
+    state: started
+    timeout: 30

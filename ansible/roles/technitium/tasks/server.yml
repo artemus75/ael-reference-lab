@@ -1,0 +1,50 @@
+---
+# DNS listener model:
+# - Each server listens only on its dedicated infrastructure IPv4 address.
+# - Wildcard and IPv6 DNS listeners are intentionally not enabled.
+
+- name: Get current Technitium DNS settings
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_current_settings
+  no_log: true
+
+- name: Configure Technitium DNS local endpoint
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/set"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      dnsServerLocalEndPoints: "{{ technitium_dns_local_endpoint }}"
+    return_content: true
+    status_code: 200
+  register: technitium_endpoint_change
+  when:
+    - technitium_current_settings.json.response.dnsServerLocalEndPoints != [technitium_dns_local_endpoint]
+  changed_when: technitium_endpoint_change.json.status == "ok"
+  no_log: true
+
+- name: Get Technitium DNS settings after endpoint configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_settings_after_endpoint
+  no_log: true
+
+- name: Validate Technitium DNS local endpoint
+  ansible.builtin.assert:
+    that:
+      - technitium_settings_after_endpoint.json.response.dnsServerLocalEndPoints == [technitium_dns_local_endpoint]
+    fail_msg: "Technitium DNS listener does not match the declared node endpoint."
+    quiet: true

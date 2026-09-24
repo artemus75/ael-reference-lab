@@ -1,0 +1,47 @@
+---
+- name: Reconcile cluster-shared Technitium forwarder state
+  hosts: dns-lab-02
+  gather_facts: false
+
+  tasks:
+    - name: Login to Technitium API for cluster forwarder reconciliation
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/user/login"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          user: "{{ technitium_admin_user }}"
+          pass: "{{ vault_technitium_admin_password }}"
+        return_content: true
+        status_code: 200
+      register: technitium_cluster_reconcile_login
+      no_log: true
+
+    - name: Get Technitium settings before cluster forwarder reconciliation
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/settings/get"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ technitium_cluster_reconcile_login.json.token }}"
+        return_content: true
+        status_code: 200
+      register: technitium_cluster_reconcile_settings
+      no_log: true
+
+    - name: Reconcile Technitium cluster forwarders on current primary
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/settings/set"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ technitium_cluster_reconcile_login.json.token }}"
+        body_format: form-urlencoded
+        body:
+          forwarders: ""
+        return_content: true
+        status_code: 200
+      register: technitium_cluster_reconcile_change
+      when:
+        - technitium_cluster_reconcile_settings.json.response.forwarders is not none
+        - technitium_cluster_reconcile_settings.json.response.forwarders | length > 0
+      changed_when: technitium_cluster_reconcile_change.json.status == "ok"
+      no_log: true

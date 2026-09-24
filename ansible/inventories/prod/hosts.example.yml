@@ -1,0 +1,39 @@
+---
+# Example production inventory for DNS/C3 automation.
+#
+# Copy to hosts.yml for local use and replace all example values.
+# Do not commit the local hosts.yml file.
+
+all:
+  children:
+    management_hosts:
+      hosts:
+        workstation:
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3
+
+    dns_servers:
+      children:
+        dns_production:
+          hosts:
+            dns-01:
+              ansible_host: 192.0.2.30
+            dns-02:
+              ansible_host: 192.0.2.31
+
+        dns_cluster_lab:
+          hosts:
+            dns-lab-01:
+              ansible_host: 192.0.2.32
+            dns-lab-02:
+              ansible_host: 192.0.2.33
+          vars:
+            technitium_cluster_test_zone: "cluster-test.example.invalid"
+            technitium_cluster_test_primary: "dns-lab-01"
+            technitium_cluster_test_primary_ip: "192.0.2.32"
+            technitium_cluster_test_secondary_ip: "192.0.2.33"
+
+      vars:
+        ansible_user: debian
+        ansible_ssh_private_key_file: ~/.ssh/id_ansible
+        ansible_python_interpreter: /usr/bin/python3

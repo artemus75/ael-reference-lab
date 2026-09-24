@@ -1,0 +1,24 @@
+---
+# Technitium DNS Server
+technitium_version: "15.4.0"
+technitium_download_url: >-
+  https://download.technitium.com/dns/archive/{{ technitium_version }}/DnsServerPortable.tar.gz
+technitium_download_sha256: >-
+  461ac09d4304ace85093fc17b10a7ee13a8796eae0adb4393866bd4d66ab283f
+
+# .NET runtime
+dotnet_version: "10.0.12"
+dotnet_install_dir: "/opt/dotnet"
+
+# Technitium filesystem layout
+technitium_install_dir: "/opt/technitium/dns"
+technitium_config_dir: "/etc/dns"
+technitium_log_dir: "/var/log/technitium/dns"
+technitium_service_user: "dns-server"
+
+# Technitium API
+technitium_api_url: "http://127.0.0.1:5380"
+technitium_admin_user: "admin"
+
+# Node-local DNS listener
+technitium_dns_local_endpoint: "{{ ansible_host }}:53"

@@ -1,0 +1,7 @@
+---
+- name: Configure DNS server OS baseline
+  hosts: dns_servers
+  gather_facts: true
+
+  roles:
+    - dns_baseline

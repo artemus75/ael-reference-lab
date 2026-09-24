@@ -1,0 +1,595 @@
+---
+# Kubernetes authoritative DNS ownership model:
+
+- name: Create Kubernetes primary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+      type: "Primary"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_zone_create
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - not technitium_k8s_zone_exists
+  changed_when: technitium_k8s_zone_create.json.status == "ok"
+  no_log: true
+
+- name: Create Kubernetes secondary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+      type: "Secondary"
+      primaryNameServerAddresses: "{{ technitium_infra_primary_ip }}"
+      zoneTransferProtocol: "Tcp"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_secondary_create
+  when:
+    - inventory_hostname != technitium_infra_primary
+    - not technitium_k8s_zone_exists
+  changed_when: technitium_k8s_secondary_create.json.status == "ok"
+  no_log: true
+
+- name: Rediscover Technitium authoritative zones after Kubernetes zone creation
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_zones_after_creation
+  changed_when: false
+  no_log: true
+
+- name: Validate Technitium authoritative zone rediscovery for Kubernetes
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_zones_after_creation.json.status == "ok"
+      - technitium_k8s_zones_after_creation.json.response is defined
+      - technitium_k8s_zones_after_creation.json.response.zones is defined
+    fail_msg: >-
+      Technitium authoritative zone rediscovery returned
+      an unexpected response for the Kubernetes zone.
+    quiet: true
+
+- name: Refresh Kubernetes zone existence state
+  ansible.builtin.set_fact:
+    technitium_k8s_zone_exists: >-
+      {{
+        technitium_k8s_zone in
+        (
+          technitium_k8s_zones_after_creation.json.response.zones
+          | default([])
+          | map(attribute='name')
+          | list
+        )
+      }}
+  changed_when: false
+
+- name: Validate Kubernetes zone existence
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_zone_exists
+    fail_msg: >-
+      Expected Kubernetes zone {{ technitium_k8s_zone }}
+      to exist after zone reconciliation.
+    quiet: true
+
+- name: Get Kubernetes primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_zone_options
+  changed_when: false
+  when:
+    - inventory_hostname == technitium_infra_primary
+  no_log: true
+
+- name: Configure Kubernetes primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/set"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+      zoneTransfer: "UseSpecifiedNetworkACL"
+      zoneTransferNetworkACL: "{{ technitium_infra_secondary_ip }}"
+      notify: "SpecifiedNameServers"
+      notifyNameServers: "{{ technitium_infra_secondary_ip }}"
+      update: "Deny"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_zone_options_set
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      technitium_k8s_zone_options.json.response.zoneTransfer != "UseSpecifiedNetworkACL"
+      or
+      technitium_k8s_zone_options.json.response.zoneTransferNetworkACL != [technitium_infra_secondary_ip]
+      or
+      technitium_k8s_zone_options.json.response.notify != "SpecifiedNameServers"
+      or
+      technitium_k8s_zone_options.json.response.notifyNameServers != [technitium_infra_secondary_ip]
+      or
+      technitium_k8s_zone_options.json.response['update'] != "Deny"
+  changed_when: technitium_k8s_zone_options_set.json.status == "ok"
+  no_log: true
+
+- name: Get Kubernetes primary zone options after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_zone_options_after_configuration
+  changed_when: false
+  when: inventory_hostname == technitium_infra_primary
+  no_log: true
+
+- name: Validate Kubernetes primary zone options desired state
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_zone_options_after_configuration.json.status == "ok"
+      - technitium_k8s_zone_options_after_configuration.json.response.zoneTransfer == "UseSpecifiedNetworkACL"
+      - technitium_k8s_zone_options_after_configuration.json.response.zoneTransferNetworkACL == [technitium_infra_secondary_ip]
+      - technitium_k8s_zone_options_after_configuration.json.response.notify == "SpecifiedNameServers"
+      - technitium_k8s_zone_options_after_configuration.json.response.notifyNameServers == [technitium_infra_secondary_ip]
+      - technitium_k8s_zone_options_after_configuration.json.response['update'] == "Deny"
+    fail_msg: >-
+      Kubernetes primary zone options do not match
+      the declared desired state.
+    quiet: true
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Get Kubernetes zone apex records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_k8s_zone }}"
+      zone: "{{ technitium_k8s_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_apex_records
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate Kubernetes zone apex discovery
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_apex_records.json.status == "ok"
+      - technitium_k8s_apex_records.json.response is defined
+      - technitium_k8s_apex_records.json.response.records is defined
+    fail_msg: "Technitium Kubernetes zone apex discovery failed."
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Validate Kubernetes SOA cardinality
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          technitium_k8s_apex_records.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | list
+          | length
+        ) == 1
+    fail_msg: "Expected exactly one SOA record at the Kubernetes zone apex."
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Extract Kubernetes SOA record
+  ansible.builtin.set_fact:
+    technitium_k8s_current_soa: >-
+      {{
+        (
+          technitium_k8s_apex_records.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | list
+        )[0]
+      }}
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Reconcile Kubernetes SOA desired state
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_k8s_zone }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "SOA"
+      ttl: "{{ technitium_k8s_current_soa.ttl | string }}"
+      primaryNameServer: "{{ technitium_k8s_soa.primary_name_server }}"
+      responsiblePerson: "{{ technitium_k8s_soa.responsible_person }}"
+      serial: "{{ technitium_k8s_current_soa.rData.serial | string }}"
+      refresh: "{{ technitium_k8s_soa.refresh | string }}"
+      retry: "{{ technitium_k8s_soa.retry | string }}"
+      expire: "{{ technitium_k8s_soa.expire | string }}"
+      minimum: "{{ technitium_k8s_soa.minimum | string }}"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_soa_update
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      technitium_k8s_current_soa.rData.primaryNameServer
+      != technitium_k8s_soa.primary_name_server
+      or
+      technitium_k8s_current_soa.rData.responsiblePerson
+      != technitium_k8s_soa.responsible_person
+      or
+      (technitium_k8s_current_soa.rData.refresh | int)
+      != (technitium_k8s_soa.refresh | int)
+      or
+      (technitium_k8s_current_soa.rData.retry | int)
+      != (technitium_k8s_soa.retry | int)
+      or
+      (technitium_k8s_current_soa.rData.expire | int)
+      != (technitium_k8s_soa.expire | int)
+      or
+      (technitium_k8s_current_soa.rData.minimum | int)
+      != (technitium_k8s_soa.minimum | int)
+  changed_when: technitium_k8s_soa_update.json.status == "ok"
+  no_log: true
+
+- name: Get Kubernetes SOA record after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_k8s_zone }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "SOA"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_soa_after_configuration
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate Kubernetes SOA desired state
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_soa_after_configuration.json.status == "ok"
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | list
+          | length
+        ) == 1
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.primaryNameServer')
+          | first
+        ) == technitium_k8s_soa.primary_name_server
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.responsiblePerson')
+          | first
+        ) == technitium_k8s_soa.responsible_person
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.refresh')
+          | first
+          | int
+        ) == (technitium_k8s_soa.refresh | int)
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.retry')
+          | first
+          | int
+        ) == (technitium_k8s_soa.retry | int)
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.expire')
+          | first
+          | int
+        ) == (technitium_k8s_soa.expire | int)
+      - >-
+        (
+          technitium_k8s_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.minimum')
+          | first
+          | int
+        ) == (technitium_k8s_soa.minimum | int)
+    fail_msg: >-
+      Kubernetes SOA record does not match the declared desired state.
+    quiet: true
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Extract Kubernetes NS records
+  ansible.builtin.set_fact:
+    technitium_k8s_current_ns_records: >-
+      {{
+        technitium_k8s_apex_records.json.response.records
+        | selectattr('type', 'equalto', 'NS')
+        | list
+      }}
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Validate Kubernetes NS record state
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_current_ns_records | length >= 1
+    fail_msg: "Expected at least one NS record at the Kubernetes zone apex."
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Add missing Kubernetes NS records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_k8s_zone }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "NS"
+      nameServer: "{{ item }}"
+      ttl: "14400"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_name_servers }}"
+  register: technitium_k8s_ns_add
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      item not in
+      (
+        technitium_k8s_current_ns_records
+        | map(attribute='rData.nameServer')
+        | list
+      )
+  changed_when: technitium_k8s_ns_add.json.status == "ok"
+  no_log: true
+
+- name: Remove unexpected Kubernetes NS records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/delete"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_k8s_zone }}"
+      domain: "{{ technitium_k8s_zone }}"
+      type: "NS"
+      nameServer: "{{ item.rData.nameServer }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_current_ns_records }}"
+  register: technitium_k8s_ns_delete
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.rData.nameServer not in technitium_k8s_name_servers
+  changed_when: technitium_k8s_ns_delete.json.status == "ok"
+  no_log: true
+
+- name: Get Kubernetes NS records after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_k8s_zone }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "NS"
+    return_content: true
+    status_code: 200
+  register: technitium_k8s_ns_after_configuration
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate exact Kubernetes NS record set
+  ansible.builtin.assert:
+    that:
+      - technitium_k8s_ns_after_configuration.json.status == "ok"
+      - >-
+        (
+          technitium_k8s_ns_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'NS')
+          | map(attribute='rData.nameServer')
+          | list
+          | sort
+        )
+        ==
+        (technitium_k8s_name_servers | sort)
+    fail_msg: >-
+      Kubernetes zone NS records do not match
+      the declared desired set.
+    quiet: true
+  when: inventory_hostname == technitium_infra_primary
+
+# ------------------------------------------------------------
+# Kubernetes application A-record management
+# ------------------------------------------------------------
+
+- name: Get existing Kubernetes application A records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.name }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "{{ item.type }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_records }}"
+  register: technitium_k8s_existing_records
+  changed_when: false
+  when:
+    - inventory_hostname == technitium_infra_primary
+  no_log: true
+
+- name: Validate Kubernetes application A record cardinality
+  ansible.builtin.assert:
+    that:
+      - item.json.response.records | length <= 1
+    fail_msg: >-
+      Expected at most one A record for {{ item.item.name }},
+      but Technitium returned {{ item.json.response.records | length }}.
+      Manual review required.
+    quiet: true
+  loop: "{{ technitium_k8s_existing_records.results | default([]) }}"
+  when:
+    - inventory_hostname == technitium_infra_primary
+  no_log: true
+
+- name: Update drifted Kubernetes application A records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.item.name }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "{{ item.item.type }}"
+      ipAddress: "{{ item.json.response.records[0].rData.ipAddress }}"
+      newIpAddress: "{{ item.item.address }}"
+      ttl: "{{ item.item.ttl | string }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_existing_records.results | default([]) }}"
+  register: technitium_k8s_record_update
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.json.response.records | length == 1
+    - >-
+      item.json.response.records[0].rData.ipAddress != item.item.address
+      or
+      (item.json.response.records[0].ttl | int) != (item.item.ttl | int)
+  changed_when: technitium_k8s_record_update.json.status == "ok"
+  no_log: true
+
+- name: Create missing Kubernetes application A records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.item.name }}"
+      type: "{{ item.item.type }}"
+      ipAddress: "{{ item.item.address }}"
+      ttl: "{{ item.item.ttl | string }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_existing_records.results | default([]) }}"
+  register: technitium_k8s_record_create
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.json.response.records | length == 0
+  changed_when: technitium_k8s_record_create.json.status == "ok"
+  no_log: true
+
+- name: Get Kubernetes application A records after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.name }}"
+      zone: "{{ technitium_k8s_zone }}"
+      type: "{{ item.type }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_k8s_records }}"
+  register: technitium_k8s_records_after
+  changed_when: false
+  when:
+    - inventory_hostname == technitium_infra_primary
+  no_log: true
+
+- name: Validate Kubernetes application A records desired state
+  ansible.builtin.assert:
+    that:
+      - item.json.status == "ok"
+      - >-
+        (
+          item.json.response.records
+          | default([])
+          | selectattr('type', 'equalto', item.item.type)
+          | list
+          | length
+        ) == 1
+      - >-
+        (
+          item.json.response.records
+          | selectattr('type', 'equalto', item.item.type)
+          | map(attribute='rData.ipAddress')
+          | first
+        ) == item.item.address
+      - >-
+        (
+          item.json.response.records
+          | selectattr('type', 'equalto', item.item.type)
+          | map(attribute='ttl')
+          | first
+          | int
+        ) == (item.item.ttl | int)
+    fail_msg: >-
+      Kubernetes application A record {{ item.item.name }}
+      does not match the declared desired state.
+    quiet: true
+  loop: "{{ technitium_k8s_records_after.results | default([]) }}"
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - not (item.skipped | default(false))
+  no_log: true

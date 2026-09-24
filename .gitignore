@@ -1,0 +1,88 @@
+# -----------------------------------------------------------------------------
+# OpenTofu
+# -----------------------------------------------------------------------------
+
+# Local provider/module cache
+**/.terraform/*
+
+# State files
+*.tfstate
+*.tfstate.*
+
+# Crash logs
+crash.log
+crash.*.log
+
+# CLI plan files
+*.tfplan
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI configuration
+.terraformrc
+terraform.rc
+
+
+# -----------------------------------------------------------------------------
+# Secrets / local environment
+# -----------------------------------------------------------------------------
+
+.env
+.env.*
+*.secret
+*.secrets
+
+# Ansible Vault files contain encrypted secrets and remain local secret material.
+vault.yml
+**/vault.yml
+
+# Production tfvars contain local VM placement, endpoints, MAC addresses,
+# and environment-specific lifecycle inputs. Track terraform.example.tfvars
+# files instead.
+tofu/**/environments/prod/terraform.tfvars
+
+# Production Ansible inventory and group vars contain local topology.
+# Track *.example.yml files instead.
+ansible/inventories/prod/hosts.yml
+ansible/inventories/prod/group_vars/dns_servers/vars.yml
+ansible/inventories/prod/group_vars/management_hosts/vars.yml
+
+
+# -----------------------------------------------------------------------------
+# Talos
+# -----------------------------------------------------------------------------
+
+# Talos secrets / PKI material
+secrets.yaml
+**/secrets.yaml
+
+# Generated Talos machine configurations contain cluster secrets / PKI.
+# Declarative patches are versioned; rendered machine configs are recovery material.
+talos/generated/
+talos/**/generated/
+
+# Talos client configuration
+talosconfig
+**/talosconfig
+
+# Kubernetes client configuration
+kubeconfig
+**/kubeconfig
+
+
+# -----------------------------------------------------------------------------
+# Editor / OS
+# -----------------------------------------------------------------------------
+
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# OpenTofu plan files
+*.plan

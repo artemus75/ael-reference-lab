@@ -1,0 +1,27 @@
+---
+# Example management-host group variables for DNS/C3 automation.
+#
+# Copy to vars.yml for local use and replace all example values.
+# Do not commit the local vars.yml file.
+
+management_bootstrap_proxmox_api_host: "pve-a.infra.example.invalid"
+management_bootstrap_proxmox_api_address: "192.0.2.22"
+
+dns_health_gate_proxmox_api_url: "https://pve-a.infra.example.invalid:8006"
+dns_health_gate_proxmox_token_id: "dns-health@pve!c3-gate"
+
+dns_health_gate_instances:
+  - name: "dns-01"
+    address: "192.0.2.30"
+    proxmox_node: "pve-a"
+    proxmox_vmid: 301
+
+  - name: "dns-02"
+    address: "192.0.2.31"
+    proxmox_node: "pve-b"
+    proxmox_vmid: 302
+
+dns_health_gate_authoritative_name: "health.infra.example.invalid"
+dns_health_gate_authoritative_address: "192.0.2.10"
+
+dns_health_gate_recursive_name: "example.com"

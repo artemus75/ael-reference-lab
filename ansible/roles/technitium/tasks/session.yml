@@ -1,0 +1,14 @@
+---
+- name: Login to Technitium API for DNS configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/user/login"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      user: "{{ technitium_admin_user }}"
+      pass: "{{ vault_technitium_admin_password }}"
+      includeInfo: "false"
+    return_content: true
+    status_code: 200
+  register: technitium_config_login
+  no_log: true

@@ -1,0 +1,64 @@
+---
+# External recursive resolution model:
+# - Technitium performs native iterative recursion.
+# - No general upstream forwarder is configured.
+# - The UDM-Pro is not part of the recursive DNS path.
+# - Conditional forwarding is configured separately when required.
+
+- name: Get current Technitium DNS resolver settings
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_resolver_settings
+  changed_when: false
+  no_log: true
+
+- name: Configure Technitium DNS external resolution model
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/set"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      forwarders: ""
+    return_content: true
+    status_code: 200
+  register: technitium_resolver_change
+  when:
+  - >
+    not technitium_cluster_initialized
+    or technitium_cluster_local_role == "Primary"
+  - technitium_resolver_settings.json.response.forwarders is not none
+  - technitium_resolver_settings.json.response.forwarders | length > 0
+  changed_when: technitium_resolver_change.json.status == "ok"
+  no_log: true
+
+- name: Wait for Technitium DNS resolver configuration convergence
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/settings/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_resolver_settings_after_configuration
+  changed_when: false
+  no_log: true
+  until:
+    - technitium_resolver_settings_after_configuration.json.status == "ok"
+    - technitium_resolver_settings_after_configuration.json.response.forwarders is none
+  retries: 6
+  delay: 5
+
+- name: Validate Technitium DNS external resolution model
+  ansible.builtin.assert:
+    that:
+      - technitium_resolver_settings_after_configuration.json.status == "ok"
+      - technitium_resolver_settings_after_configuration.json.response.forwarders is none
+    fail_msg: "Technitium DNS general upstream forwarders are still configured."
+    quiet: true

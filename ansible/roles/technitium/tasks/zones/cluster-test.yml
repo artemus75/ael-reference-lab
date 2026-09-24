@@ -1,0 +1,178 @@
+---
+- name: Determine whether cluster test zone exists
+  ansible.builtin.set_fact:
+    technitium_cluster_test_zone_exists: >-
+      {{
+        technitium_zones.json.response.zones
+        | selectattr('name', 'equalto', technitium_cluster_test_zone)
+        | list
+        | length > 0
+      }}
+
+- name: Create cluster test primary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_cluster_test_zone }}"
+      type: "Primary"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_primary_create
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+    - not technitium_cluster_test_zone_exists
+  changed_when: technitium_cluster_test_primary_create.json.status == "ok"
+  no_log: true
+
+- name: Get cluster test primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_cluster_test_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_zone_options
+  changed_when: false
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+    - technitium_cluster_test_zone_exists
+  no_log: true
+
+- name: Configure cluster test primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/set"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_cluster_test_zone }}"
+      zoneTransfer: "UseSpecifiedNetworkACL"
+      zoneTransferNetworkACL: "{{ technitium_cluster_test_secondary_ip }}"
+      notify: "SpecifiedNameServers"
+      notifyNameServers: "{{ technitium_cluster_test_secondary_ip }}"
+      update: "Deny"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_zone_options_set
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+    - >-
+      (not technitium_cluster_test_zone_exists) or
+      (
+        technitium_cluster_test_zone_options is defined and
+        (
+          technitium_cluster_test_zone_options.json.response.zoneTransfer != "UseSpecifiedNetworkACL" or
+          technitium_cluster_test_zone_options.json.response.zoneTransferNetworkACL != [technitium_cluster_test_secondary_ip] or
+          technitium_cluster_test_zone_options.json.response.notify != "SpecifiedNameServers" or
+          technitium_cluster_test_zone_options.json.response.notifyNameServers != [technitium_cluster_test_secondary_ip] or
+          technitium_cluster_test_zone_options.json.response['update'] != "Deny"
+        )
+      )
+  changed_when: technitium_cluster_test_zone_options_set.json.status == "ok"
+  no_log: true
+
+- name: Create cluster test secondary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_cluster_test_zone }}"
+      type: "Secondary"
+      primaryNameServerAddresses: "{{ technitium_cluster_test_primary_ip }}"
+      zoneTransferProtocol: "Tcp"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_secondary_create
+  when:
+    - inventory_hostname != technitium_cluster_test_primary
+    - not technitium_cluster_test_zone_exists
+  changed_when: technitium_cluster_test_secondary_create.json.status == "ok"
+  no_log: true
+
+- name: Get cluster test probe A record
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "probe.{{ technitium_cluster_test_zone }}"
+      type: "A"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_probe_record
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate cluster test probe A record cardinality
+  ansible.builtin.assert:
+    that:
+      - technitium_cluster_test_probe_record.json.response.records | length <= 1
+    fail_msg: >-
+      Multiple A records exist for probe.{{ technitium_cluster_test_zone }}.
+      Refusing ambiguous reconciliation.
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+
+- name: Create cluster test probe A record
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "probe.{{ technitium_cluster_test_zone }}"
+      type: "A"
+      ipAddress: "192.0.2.10"
+      ttl: "300"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_probe_create
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+    - technitium_cluster_test_probe_record.json.response.records | length == 0
+  changed_when: technitium_cluster_test_probe_create.json.status == "ok"
+  no_log: true
+
+- name: Update drifted cluster test probe A record
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "probe.{{ technitium_cluster_test_zone }}"
+      zone: "{{ technitium_cluster_test_zone }}"
+      type: "A"
+      ipAddress: "{{ technitium_cluster_test_probe_record.json.response.records[0].rData.ipAddress }}"
+      newIpAddress: "192.0.2.12"
+      ttl: "300"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_test_probe_update
+  when:
+    - inventory_hostname == technitium_cluster_test_primary
+    - technitium_cluster_test_probe_record.json.response.records | length == 1
+    - >-
+      technitium_cluster_test_probe_record.json.response.records[0].rData.ipAddress != "192.0.2.12"
+      or
+      (technitium_cluster_test_probe_record.json.response.records[0].ttl | int) != 300
+  changed_when: technitium_cluster_test_probe_update.json.status == "ok"
+  no_log: true

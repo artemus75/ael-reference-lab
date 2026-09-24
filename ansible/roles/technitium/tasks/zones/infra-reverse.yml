@@ -1,0 +1,606 @@
+---
+# Infrastructure reverse DNS ownership model:
+# - dns-01 is the Primary and the only declarative write target.
+# - dns-02 is a Secondary populated via AXFR/IXFR and NOTIFY.
+# - Only explicitly declared infrastructure PTR records are owned here.
+# - This zone does not imply ownership of all endpoint identities in the subnet.
+# - DHCP/client identity remains outside this desired-state model.
+
+- name: Create infrastructure reverse primary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_reverse_zone }}"
+      type: "Primary"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_primary_create
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - not technitium_reverse_zone_exists
+  changed_when: technitium_reverse_primary_create.json.status == "ok"
+  no_log: true
+
+- name: Create infrastructure reverse secondary zone
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/create"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_reverse_zone }}"
+      type: "Secondary"
+      primaryNameServerAddresses: "{{ technitium_infra_primary_ip }}"
+      zoneTransferProtocol: "Tcp"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_secondary_create
+  when:
+    - inventory_hostname != technitium_infra_primary
+    - not technitium_reverse_zone_exists
+  changed_when: technitium_reverse_secondary_create.json.status == "ok"
+  no_log: true
+
+- name: Rediscover Technitium authoritative zones after reverse zone creation
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_zones_after_creation
+  changed_when: false
+  no_log: true
+
+- name: Validate Technitium authoritative zone rediscovery
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_zones_after_creation.json.status == "ok"
+      - technitium_reverse_zones_after_creation.json.response is defined
+      - technitium_reverse_zones_after_creation.json.response.zones is defined
+    fail_msg: >-
+      Technitium authoritative zone rediscovery returned
+      an unexpected response.
+    quiet: true
+
+- name: Refresh infrastructure reverse zone existence state
+  ansible.builtin.set_fact:
+    technitium_reverse_zone_exists: >-
+      {{
+        technitium_reverse_zone in
+        (
+          technitium_reverse_zones_after_creation.json.response.zones
+          | default([])
+          | map(attribute='name')
+          | list
+        )
+      }}
+  changed_when: false
+
+- name: Validate infrastructure reverse zone existence
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_zone_exists
+    fail_msg: >-
+      Expected reverse zone {{ technitium_reverse_zone }}
+      to exist after reverse zone reconciliation.
+    quiet: true
+
+- name: Get infrastructure reverse primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_reverse_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_zone_options
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+  changed_when: false
+  no_log: true
+
+- name: Configure infrastructure reverse primary zone options
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/options/set"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_reverse_zone }}"
+      zoneTransfer: "UseSpecifiedNetworkACL"
+      zoneTransferNetworkACL: "{{ technitium_infra_secondary_ip }}"
+      notify: "SpecifiedNameServers"
+      notifyNameServers: "{{ technitium_infra_secondary_ip }}"
+      update: "Deny"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_zone_options_set
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      technitium_reverse_zone_options.json.response.zoneTransfer != "UseSpecifiedNetworkACL"
+      or
+      technitium_reverse_zone_options.json.response.zoneTransferNetworkACL != [technitium_infra_secondary_ip]
+      or
+      technitium_reverse_zone_options.json.response.notify != "SpecifiedNameServers"
+      or
+      technitium_reverse_zone_options.json.response.notifyNameServers != [technitium_infra_secondary_ip]
+      or
+      technitium_reverse_zone_options.json.response['update'] != "Deny"
+  changed_when: technitium_reverse_zone_options_set.json.status == "ok"
+  no_log: true
+
+- name: Get infrastructure reverse zone apex records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_apex_records
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+  changed_when: false
+  no_log: true
+
+- name: Validate infrastructure reverse zone apex discovery
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_apex_records.json.status == "ok"
+      - technitium_reverse_apex_records.json.response is defined
+      - technitium_reverse_apex_records.json.response.records is defined
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Extract infrastructure reverse SOA records
+  ansible.builtin.set_fact:
+    technitium_reverse_soa_records: >-
+      {{
+        technitium_reverse_apex_records.json.response.records
+        | selectattr('type', 'equalto', 'SOA')
+        | list
+      }}
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Validate infrastructure reverse SOA cardinality
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_soa_records | length == 1
+    fail_msg: >-
+      Expected exactly one SOA record for {{ technitium_reverse_zone }},
+      found {{ technitium_reverse_soa_records | length }}.
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Extract infrastructure reverse SOA record
+  ansible.builtin.set_fact:
+    technitium_reverse_soa_record: "{{ technitium_reverse_soa_records[0] }}"
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Reconcile infrastructure reverse SOA desired state
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "SOA"
+      ttl: "{{ technitium_reverse_soa_record.ttl | string }}"
+      primaryNameServer: "{{ technitium_reverse_soa.primary_name_server }}"
+      responsiblePerson: "{{ technitium_reverse_soa.responsible_person }}"
+      serial: "{{ technitium_reverse_soa_record.rData.serial | string }}"
+      refresh: "{{ technitium_reverse_soa.refresh | string }}"
+      retry: "{{ technitium_reverse_soa.retry | string }}"
+      expire: "{{ technitium_reverse_soa.expire | string }}"
+      minimum: "{{ technitium_reverse_soa.minimum | string }}"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_soa_update
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      technitium_reverse_soa_record.rData.primaryNameServer
+      != technitium_reverse_soa.primary_name_server
+      or
+      technitium_reverse_soa_record.rData.responsiblePerson
+      != technitium_reverse_soa.responsible_person
+      or
+      (technitium_reverse_soa_record.rData.refresh | int)
+      != (technitium_reverse_soa.refresh | int)
+      or
+      (technitium_reverse_soa_record.rData.retry | int)
+      != (technitium_reverse_soa.retry | int)
+      or
+      (technitium_reverse_soa_record.rData.expire | int)
+      != (technitium_reverse_soa.expire | int)
+      or
+      (technitium_reverse_soa_record.rData.minimum | int)
+      != (technitium_reverse_soa.minimum | int)
+  changed_when: technitium_reverse_soa_update.json.status == "ok"
+  no_log: true
+
+- name: Get infrastructure reverse SOA record after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "SOA"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_soa_after_configuration
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate infrastructure reverse SOA desired state
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_soa_after_configuration.json.status == "ok"
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | list
+          | length
+        ) == 1
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.primaryNameServer')
+          | first
+        ) == technitium_reverse_soa.primary_name_server
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.responsiblePerson')
+          | first
+        ) == technitium_reverse_soa.responsible_person
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.refresh')
+          | first
+          | int
+        ) == (technitium_reverse_soa.refresh | int)
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.retry')
+          | first
+          | int
+        ) == (technitium_reverse_soa.retry | int)
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.expire')
+          | first
+          | int
+        ) == (technitium_reverse_soa.expire | int)
+      - >-
+        (
+          technitium_reverse_soa_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'SOA')
+          | map(attribute='rData.minimum')
+          | first
+          | int
+        ) == (technitium_reverse_soa.minimum | int)
+    fail_msg: >-
+      Infrastructure reverse SOA record does not match
+      the declared desired state.
+    quiet: true
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Extract infrastructure reverse NS records
+  ansible.builtin.set_fact:
+    technitium_reverse_current_ns_records: >-
+      {{
+        technitium_reverse_apex_records.json.response.records
+        | selectattr('type', 'equalto', 'NS')
+        | list
+      }}
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Validate infrastructure reverse NS record state
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_current_ns_records | length >= 1
+    fail_msg: >-
+      Expected at least one NS record at the
+      {{ technitium_reverse_zone }} zone apex.
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - technitium_reverse_zone_exists
+
+- name: Add missing infrastructure reverse NS records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "NS"
+      nameServer: "{{ item }}"
+      ttl: "14400"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_name_servers }}"
+  register: technitium_reverse_ns_add
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - >-
+      item not in
+      (
+        technitium_reverse_current_ns_records
+        | map(attribute='rData.nameServer')
+        | list
+      )
+  changed_when: technitium_reverse_ns_add.json.status == "ok"
+  no_log: true
+
+- name: Remove unexpected infrastructure reverse NS records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/delete"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      zone: "{{ technitium_reverse_zone }}"
+      domain: "{{ technitium_reverse_zone }}"
+      type: "NS"
+      nameServer: "{{ item.rData.nameServer }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_current_ns_records }}"
+  register: technitium_reverse_ns_delete
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.rData.nameServer not in technitium_reverse_name_servers
+  changed_when: technitium_reverse_ns_delete.json.status == "ok"
+  no_log: true
+
+- name: Get infrastructure reverse NS records after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "NS"
+    return_content: true
+    status_code: 200
+  register: technitium_reverse_ns_after_configuration
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate exact infrastructure reverse NS record set
+  ansible.builtin.assert:
+    that:
+      - technitium_reverse_ns_after_configuration.json.status == "ok"
+      - >-
+        (
+          technitium_reverse_ns_after_configuration.json.response.records
+          | selectattr('type', 'equalto', 'NS')
+          | map(attribute='rData.nameServer')
+          | list
+          | sort
+        )
+        ==
+        (technitium_reverse_name_servers | sort)
+    fail_msg: >-
+      Infrastructure reverse zone NS records do not match
+      the declared desired set.
+    quiet: true
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Get infrastructure reverse PTR records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.address.split('.')[-1] }}.{{ technitium_reverse_zone }}"
+      zone: "{{ technitium_reverse_zone }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_records }}"
+  register: technitium_reverse_ptr_discovery
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Build infrastructure reverse PTR state
+  ansible.builtin.set_fact:
+    technitium_reverse_ptr_state: >-
+      {{
+        (technitium_reverse_ptr_state | default([]))
+        +
+        [
+          {
+            'address': item.item.address,
+            'domain': item.item.address.split('.')[-1] ~ '.' ~ technitium_reverse_zone,
+            'target': item.item.target,
+            'ttl': item.item.ttl,
+            'records':
+              (
+                item.json.response.records
+                | default([])
+                | selectattr('type', 'equalto', 'PTR')
+                | list
+              )
+          }
+        ]
+      }}
+  loop: "{{ technitium_reverse_ptr_discovery.results }}"
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - not (item.skipped | default(false))
+  no_log: true
+
+- name: Validate infrastructure reverse PTR cardinality
+  ansible.builtin.assert:
+    that:
+      - item.records | length <= 1
+    fail_msg: >-
+      Expected at most one managed PTR record for {{ item.address }}
+      ({{ item.domain }}), found {{ item.records | length }}.
+  loop: "{{ technitium_reverse_ptr_state }}"
+  when: inventory_hostname == technitium_infra_primary
+
+- name: Create missing infrastructure reverse PTR records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/add"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.domain }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "PTR"
+      ptrName: "{{ item.target }}"
+      ttl: "{{ item.ttl | string }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_ptr_state }}"
+  register: technitium_reverse_ptr_create
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.records | length == 0
+  changed_when: technitium_reverse_ptr_create.json.status == "ok"
+  no_log: true
+
+- name: Update drifted infrastructure reverse PTR records
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/update"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: "{{ item.domain }}"
+      zone: "{{ technitium_reverse_zone }}"
+      type: "PTR"
+      ptrName: "{{ item.records[0].rData.ptrName }}"
+      newPtrName: "{{ item.target }}"
+      ttl: "{{ item.ttl | string }}"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_ptr_state }}"
+  register: technitium_reverse_ptr_update
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - item.records | length == 1
+    - >-
+      item.records[0].rData.ptrName != item.target
+      or
+      (item.records[0].ttl | int) != (item.ttl | int)
+  changed_when: technitium_reverse_ptr_update.json.status == "ok"
+  no_log: true
+
+- name: Get infrastructure reverse PTR records after configuration
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/records/get"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    body_format: form-urlencoded
+    body:
+      domain: >-
+        {{
+          item.address.split('.')[-1]
+        }}.{{ technitium_reverse_zone }}
+      zone: "{{ technitium_reverse_zone }}"
+      type: "PTR"
+    return_content: true
+    status_code: 200
+  loop: "{{ technitium_reverse_records }}"
+  register: technitium_reverse_ptr_after_configuration
+  when: inventory_hostname == technitium_infra_primary
+  changed_when: false
+  no_log: true
+
+- name: Validate infrastructure reverse PTR records desired state
+  ansible.builtin.assert:
+    that:
+      - item.json.status == "ok"
+      - >-
+        (
+          item.json.response.records
+          | default([])
+          | selectattr('type', 'equalto', 'PTR')
+          | list
+          | length
+        ) == 1
+      - >-
+        (
+          item.json.response.records
+          | selectattr('type', 'equalto', 'PTR')
+          | map(attribute='rData.ptrName')
+          | first
+        ) == item.item.target
+      - >-
+        (
+          item.json.response.records
+          | selectattr('type', 'equalto', 'PTR')
+          | map(attribute='ttl')
+          | first
+          | int
+        ) == (item.item.ttl | int)
+    fail_msg: >-
+      PTR record for {{ item.item.address }} does not match
+      the declared desired state.
+    quiet: true
+  loop: "{{ technitium_reverse_ptr_after_configuration.results }}"
+  when:
+    - inventory_hostname == technitium_infra_primary
+    - not (item.skipped | default(false))
+  no_log: true

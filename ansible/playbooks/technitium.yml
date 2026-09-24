@@ -1,0 +1,7 @@
+---
+- name: Configure Technitium DNS servers
+  hosts: dns_servers
+  gather_facts: true
+
+  roles:
+    - technitium

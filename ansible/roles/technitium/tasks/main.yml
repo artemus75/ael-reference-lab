@@ -1,0 +1,37 @@
+---
+- name: Install and start Technitium DNS Server
+  ansible.builtin.import_tasks: install.yml
+
+- name: Bootstrap Technitium administrator credentials
+  ansible.builtin.import_tasks: bootstrap.yml
+
+- name: Establish Technitium API session
+  ansible.builtin.import_tasks: session.yml
+
+- name: Configure Technitium DNS server
+  ansible.builtin.import_tasks: server.yml
+
+- name: Discover Technitium cluster runtime state
+  import_tasks: cluster.yml
+
+- name: Configure Technitium DNS resolver
+  ansible.builtin.import_tasks: resolver.yml
+
+- name: Configure Technitium authoritative DNS
+  ansible.builtin.import_tasks: authoritative.yml
+
+- name: Reconcile infrastructure forward zone
+  ansible.builtin.import_tasks: zones/infra-forward.yml
+  when: inventory_hostname in groups['dns_production']
+
+- name: Reconcile infrastructure reverse zone
+  ansible.builtin.import_tasks: zones/infra-reverse.yml
+  when: inventory_hostname in groups['dns_production']
+
+- name: Reconcile Kubernetes forward zone
+  ansible.builtin.import_tasks: zones/k8s-forward.yml
+  when: inventory_hostname in groups['dns_production']
+
+- name: Reconcile cluster test zone
+  ansible.builtin.import_tasks: zones/cluster-test.yml
+  when: inventory_hostname in groups['dns_cluster_lab']

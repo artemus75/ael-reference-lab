@@ -1,0 +1,67 @@
+---
+- name: Get Technitium API status
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/status"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: technitium_status
+  changed_when: false
+
+- name: Bootstrap Technitium administrator
+  when: technitium_status.json.hasDefaultCredentials | bool
+  block:
+    - name: Login with Technitium default credentials
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/user/login"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          user: "{{ technitium_admin_user }}"
+          pass: "admin"
+          includeInfo: "false"
+        return_content: true
+        status_code: 200
+      register: technitium_login
+      no_log: true
+
+    - name: Change Technitium administrator password
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/user/changePassword"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ technitium_login.json.token }}"
+        body_format: form-urlencoded
+        body:
+          pass: "admin"
+          newPass: "{{ vault_technitium_admin_password }}"
+        return_content: true
+        status_code: 200
+      register: technitium_password_change
+      no_log: true
+      changed_when: technitium_password_change.json.status == "ok"
+
+    - name: Validate Technitium password change response
+      ansible.builtin.assert:
+        that:
+          - technitium_password_change.json.status == "ok"
+        fail_msg: "Technitium administrator password bootstrap failed."
+        quiet: true
+      no_log: true
+
+- name: Get Technitium API status after bootstrap
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/status"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: technitium_status_after_bootstrap
+  changed_when: false
+
+- name: Validate Technitium credential bootstrap
+  ansible.builtin.assert:
+    that:
+      - technitium_status_after_bootstrap.json.status == "ok"
+      - not (technitium_status_after_bootstrap.json.hasDefaultCredentials | bool)
+    fail_msg: "Technitium still reports default credentials."
+    quiet: true

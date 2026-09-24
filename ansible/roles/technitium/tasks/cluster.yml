@@ -1,0 +1,114 @@
+---
+# Technitium cluster runtime discovery.
+#
+# This file is intentionally read-only.
+# Cluster initialization, join, promotion, deletion, and disaster recovery
+# are separate lifecycle operations and are not performed here.
+
+- name: Get Technitium cluster runtime state
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/admin/cluster/state"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_cluster_state
+  changed_when: false
+  no_log: true
+
+- name: Validate Technitium cluster state response
+  ansible.builtin.assert:
+    that:
+      - technitium_cluster_state.json.status == "ok"
+      - technitium_cluster_state.json.response is defined
+      - technitium_cluster_state.json.response.clusterInitialized is defined
+      - technitium_cluster_state.json.response.dnsServerDomain is defined
+    fail_msg: "Technitium cluster state discovery returned an inconsistent response."
+    quiet: true
+
+- name: Set Technitium cluster initialization fact
+  ansible.builtin.set_fact:
+    technitium_cluster_initialized: >-
+      {{
+        technitium_cluster_state.json.response.clusterInitialized
+        | bool
+      }}
+  changed_when: false
+
+- name: Validate Technitium initialized cluster state response
+  ansible.builtin.assert:
+    that:
+      - technitium_cluster_state.json.server is defined
+      - technitium_cluster_state.json.response.clusterNodes is defined
+    fail_msg: >-
+      Technitium initialized cluster state returned
+      an unexpected response.
+    quiet: true
+  when: technitium_cluster_initialized
+
+- name: Validate Technitium local cluster node cardinality
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          technitium_cluster_state.json.response.clusterNodes
+          | selectattr(
+              'name',
+              'equalto',
+              technitium_cluster_state.json.server
+            )
+          | list
+          | length
+        ) == 1
+    fail_msg: >-
+      Expected exactly one local Technitium cluster node
+      matching the server identity.
+    quiet: true
+  when: technitium_cluster_initialized
+
+- name: Determine local Technitium cluster node
+  ansible.builtin.set_fact:
+    technitium_cluster_local_node: >-
+      {{
+        (
+          technitium_cluster_state.json.response.clusterNodes
+          | selectattr(
+              'name',
+              'equalto',
+              technitium_cluster_state.json.server
+            )
+          | list
+          | first
+        )
+      }}
+  changed_when: false
+  when: technitium_cluster_initialized
+
+- name: Set Technitium local cluster role
+  ansible.builtin.set_fact:
+    technitium_cluster_local_role: >-
+      {{ technitium_cluster_local_node.type }}
+  changed_when: false
+  when: technitium_cluster_initialized
+
+- name: Show Technitium local cluster runtime state
+  ansible.builtin.debug:
+    msg:
+      cluster_initialized: "{{ technitium_cluster_initialized }}"
+      local_node: "{{ technitium_cluster_local_node.name }}"
+      local_role: "{{ technitium_cluster_local_role }}"
+      local_state: "{{ technitium_cluster_local_node.state }}"
+  when: technitium_cluster_initialized
+
+- name: Validate Technitium cluster runtime discovery
+  ansible.builtin.assert:
+    that:
+      - technitium_cluster_state.json.status == "ok"
+      - technitium_cluster_state.json.server is defined
+      - technitium_cluster_local_node is defined
+      - technitium_cluster_local_node.state == "Self"
+      - technitium_cluster_local_role in ["Primary", "Secondary"]
+    fail_msg: "Technitium cluster runtime discovery returned an inconsistent state."
+    quiet: true
+  when: technitium_cluster_initialized

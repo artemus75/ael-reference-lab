@@ -1,0 +1,70 @@
+---
+- name: Get Technitium authoritative zones
+  ansible.builtin.uri:
+    url: "{{ technitium_api_url }}/api/zones/list"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ technitium_config_login.json.token }}"
+    return_content: true
+    status_code: 200
+  register: technitium_zones
+  changed_when: false
+  no_log: true
+
+- name: Validate Technitium zone discovery
+  ansible.builtin.assert:
+    that:
+      - technitium_zones.json.status == "ok"
+      - technitium_zones.json.response is defined
+    fail_msg: "Technitium authoritative zone discovery failed."
+    quiet: true
+
+- name: Show discovered Technitium zones
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        technitium_zones.json.response.zones
+        | default([])
+        | map(attribute='name')
+        | list
+      }}
+
+- name: Determine whether infrastructure zone exists
+  ansible.builtin.set_fact:
+    technitium_infra_zone_exists: >-
+      {{
+        technitium_infra_zone in
+        (
+          technitium_zones.json.response.zones
+          | default([])
+          | map(attribute='name')
+          | list
+        )
+      }}
+  changed_when: false
+
+- name: Determine whether Kubernetes zone exists
+  ansible.builtin.set_fact:
+    technitium_k8s_zone_exists: >-
+      {{
+        technitium_k8s_zone in
+        (
+          technitium_zones.json.response.zones
+          | default([])
+          | map(attribute='name')
+          | list
+        )
+      }}
+  changed_when: false
+
+- name: Determine whether reverse infrastructure zone exists
+  ansible.builtin.set_fact:
+    technitium_reverse_zone_exists: >-
+      {{
+        technitium_reverse_zone in
+        (
+          technitium_zones.json.response.zones
+          | map(attribute='name')
+          | list
+        )
+      }}

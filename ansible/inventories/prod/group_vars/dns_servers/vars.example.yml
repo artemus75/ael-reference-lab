@@ -1,0 +1,130 @@
+---
+# Example DNS server group variables for DNS/C3 automation.
+#
+# Copy to vars.yml for local use and replace all example values.
+# Do not commit the local vars.yml file.
+
+dns_base_domain: "example.invalid"
+
+technitium_infra_zone: "infra.{{ dns_base_domain }}"
+
+technitium_infra_primary: "dns-01"
+technitium_infra_primary_ip: "192.0.2.30"
+technitium_infra_secondary_ip: "192.0.2.31"
+
+technitium_infra_soa:
+  primary_name_server: "dns-01.dns.infra.{{ dns_base_domain }}"
+  responsible_person: "hostadmin@infra.{{ dns_base_domain }}"
+  refresh: 900
+  retry: 300
+  expire: 604800
+  minimum: 900
+
+technitium_infra_name_servers:
+  - "dns-01.dns.infra.{{ dns_base_domain }}"
+  - "dns-02.dns.infra.{{ dns_base_domain }}"
+
+technitium_infra_records:
+  - name: "dns-01.dns.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.30"
+    ttl: 3600
+
+  - name: "dns-02.dns.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.31"
+    ttl: 3600
+
+  - name: "health.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.10"
+    ttl: 300
+
+  - name: "pve-a.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.22"
+    ttl: 3600
+
+  - name: "pve-b.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.23"
+    ttl: 3600
+
+  - name: "pve-mgmt.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.25"
+    ttl: 3600
+
+  - name: "nas.infra.{{ dns_base_domain }}"
+    type: "A"
+    address: "192.0.2.171"
+    ttl: 3600
+
+technitium_reverse_zone: "2.0.192.in-addr.arpa"
+
+technitium_reverse_soa:
+  primary_name_server: "dns-01.dns.infra.{{ dns_base_domain }}"
+  responsible_person: "hostadmin@infra.{{ dns_base_domain }}"
+  refresh: 900
+  retry: 300
+  expire: 604800
+  minimum: 900
+
+technitium_reverse_name_servers:
+  - "dns-01.dns.infra.{{ dns_base_domain }}"
+  - "dns-02.dns.infra.{{ dns_base_domain }}"
+
+technitium_reverse_records:
+  - address: "192.0.2.22"
+    target: "pve-a.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+  - address: "192.0.2.23"
+    target: "pve-b.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+  - address: "192.0.2.25"
+    target: "pve-mgmt.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+  - address: "192.0.2.30"
+    target: "dns-01.dns.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+  - address: "192.0.2.31"
+    target: "dns-02.dns.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+  - address: "192.0.2.171"
+    target: "nas.infra.{{ dns_base_domain }}"
+    ttl: 3600
+
+technitium_k8s_zone: "k8s.{{ dns_base_domain }}"
+
+technitium_k8s_soa:
+  primary_name_server: "dns-01.dns.infra.{{ dns_base_domain }}"
+  responsible_person: "hostadmin@{{ dns_base_domain }}"
+  refresh: 900
+  retry: 300
+  expire: 604800
+  minimum: 300
+
+technitium_k8s_name_servers:
+  - "dns-01.dns.infra.{{ dns_base_domain }}"
+  - "dns-02.dns.infra.{{ dns_base_domain }}"
+
+technitium_k8s_records:
+  - name: "grafana.k8s.{{ dns_base_domain }}"
+    type: "A"
+    address: "198.51.100.200"
+    ttl: 300
+
+  - name: "nextcloud.k8s.{{ dns_base_domain }}"
+    type: "A"
+    address: "198.51.100.200"
+    ttl: 300
+
+  - name: "whoami.k8s.{{ dns_base_domain }}"
+    type: "A"
+    address: "198.51.100.200"
+    ttl: 300

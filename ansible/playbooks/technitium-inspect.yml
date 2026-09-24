@@ -1,0 +1,109 @@
+---
+- name: Inspect Technitium DNS settings
+  hosts: dns_servers
+  gather_facts: false
+
+  tasks:
+    - name: Login to Technitium API
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/user/login"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          user: "{{ technitium_admin_user }}"
+          pass: "{{ vault_technitium_admin_password }}"
+          includeInfo: "false"
+        return_content: true
+        status_code: 200
+      register: technitium_inspect_login
+      changed_when: false
+      no_log: true
+
+    - name: Get infrastructure reverse zone options
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/zones/options/get"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ technitium_inspect_login.json.token }}"
+        body_format: form-urlencoded
+        body:
+          zone: "{{ technitium_reverse_zone }}"
+        return_content: true
+        status_code: 200
+      register: technitium_inspect_reverse_zone_options
+      changed_when: false
+      no_log: true
+      when: inventory_hostname in groups['dns_production']
+
+    - name: Show infrastructure reverse zone options
+      ansible.builtin.debug:
+        msg:
+          zoneTransfer: "{{ technitium_inspect_reverse_zone_options.json.response.zoneTransfer }}"
+          zoneTransferNetworkACL: "{{ technitium_inspect_reverse_zone_options.json.response.zoneTransferNetworkACL }}"
+          notify: "{{ technitium_inspect_reverse_zone_options.json.response.notify }}"
+          notifyNameServers: "{{ technitium_inspect_reverse_zone_options.json.response.notifyNameServers }}"
+          update: "{{ technitium_inspect_reverse_zone_options.json.response['update'] }}"
+      when: inventory_hostname in groups['dns_production']
+
+    - name: Get Technitium DNS settings
+      ansible.builtin.uri:
+        url: "{{ technitium_api_url }}/api/settings/get"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ technitium_inspect_login.json.token }}"
+        return_content: true
+        status_code: 200
+      register: technitium_inspect_settings
+      changed_when: false
+      no_log: true
+
+    - name: Show Technitium cluster ownership test settings
+      ansible.builtin.debug:
+        msg:
+          server: "{{ inventory_hostname }}"
+          dnsServerDomain: "{{ technitium_inspect_settings.json.response.dnsServerDomain | default('UNDEFINED', true) }}"
+          dnsServerLocalEndPoints: "{{ technitium_inspect_settings.json.response.dnsServerLocalEndPoints | default('UNDEFINED', true) }}"
+          forwarders: "{{ technitium_inspect_settings.json.response.forwarders | default('UNDEFINED', true) }}"
+          forwarderProtocol: "{{ technitium_inspect_settings.json.response.forwarderProtocol | default('UNDEFINED', true) }}"
+          concurrentForwarding: "{{ technitium_inspect_settings.json.response.concurrentForwarding | default('UNDEFINED', true) }}"
+
+    - name: Show DNS server local endpoints
+      ansible.builtin.debug:
+        msg:
+          server: "{{ inventory_hostname }}"
+          dnsServerLocalEndPoints: >-
+            {{ technitium_inspect_settings.json.response.dnsServerLocalEndPoints }}
+
+    - name: Test Technitium recursive resolver
+      ansible.builtin.uri:
+        url: >-
+          {{ technitium_api_url }}/api/dnsClient/resolve?server=recursive-resolver&domain=example.com&type=A&protocol=Udp
+        method: GET
+        headers:
+          Authorization: "Bearer {{ technitium_inspect_login.json.token }}"
+        return_content: true
+        status_code: 200
+      register: technitium_recursive_test
+      changed_when: false
+      no_log: true
+
+    - name: Show Technitium recursive resolver result
+      ansible.builtin.debug:
+        var: technitium_recursive_test.json.response
+
+    - name: Show Technitium recursive resolver settings
+      ansible.builtin.debug:
+        msg:
+          server: "{{ inventory_hostname }}"
+          recursion: "{{ technitium_inspect_settings.json.response.recursion | default('UNDEFINED') }}"
+          recursionDeniedNetworks: "{{ technitium_inspect_settings.json.response.recursionDeniedNetworks | default('UNDEFINED') }}"
+          recursionAllowedNetworks: "{{ technitium_inspect_settings.json.response.recursionAllowedNetworks | default('UNDEFINED') }}"
+          randomizeName: "{{ technitium_inspect_settings.json.response.randomizeName | default('UNDEFINED') }}"
+          qnameMinimization: "{{ technitium_inspect_settings.json.response.qnameMinimization | default('UNDEFINED') }}"
+          nsRevalidation: "{{ technitium_inspect_settings.json.response.nsRevalidation | default('UNDEFINED') }}"
+          resolverRetries: "{{ technitium_inspect_settings.json.response.resolverRetries | default('UNDEFINED') }}"
+          resolverTimeout: "{{ technitium_inspect_settings.json.response.resolverTimeout | default('UNDEFINED') }}"
+          resolverConcurrency: "{{ technitium_inspect_settings.json.response.resolverConcurrency | default('UNDEFINED') }}"
+          forwarders: "{{ technitium_inspect_settings.json.response.forwarders | default('UNDEFINED') }}"
+          forwarderProtocol: "{{ technitium_inspect_settings.json.response.forwarderProtocol | default('UNDEFINED') }}"
+          concurrentForwarding: "{{ technitium_inspect_settings.json.response.concurrentForwarding | default('UNDEFINED') }}"

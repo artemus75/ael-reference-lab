@@ -1,0 +1,7 @@
+---
+- name: Restart Technitium DNS Server
+  ansible.builtin.systemd_service:
+    name: dns.service
+    state: restarted
+    daemon_reload: true
+  become: true

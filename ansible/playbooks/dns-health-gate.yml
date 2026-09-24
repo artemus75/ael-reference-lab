@@ -1,0 +1,305 @@
+---
+- name: Validate DNS operational readiness
+  hosts: management_hosts
+  gather_facts: false
+
+  vars:
+    dns_health_gate_proxmox_auth_header: >-
+      PVEAPIToken={{ dns_health_gate_proxmox_token_id }}={{ vault_proxmox_dns_health_token }}
+
+    dns_health_gate_selected_instances: >-
+      {{
+        dns_health_gate_instances
+        if dns_health_gate_target is not defined
+        else
+        (
+          dns_health_gate_instances
+          | selectattr('name', 'equalto', dns_health_gate_target)
+          | list
+        )
+      }}
+
+  tasks:
+    - name: Gate | Validate health gate target
+      ansible.builtin.assert:
+        that:
+          - dns_health_gate_selected_instances | length > 0
+          - dns_health_gate_selected_instances | length == (dns_health_gate_instances | length) or dns_health_gate_selected_instances | length == 1
+        fail_msg: >-
+          Health gate target '{{ dns_health_gate_target | default("all") }}'
+          does not identify a valid DNS instance.
+        success_msg: >-
+          Health gate target '{{ dns_health_gate_target | default("all") }}'
+          selected {{ dns_health_gate_selected_instances | length }} instance(s).
+
+    # -----------------------------------------------------------------------
+    # L1 — Infrastructure Runtime
+    # -----------------------------------------------------------------------
+
+    - name: L1 | Query Proxmox VM runtime status
+      ansible.builtin.uri:
+        url: >-
+          {{ dns_health_gate_proxmox_api_url }}/api2/json/nodes/{{
+          item.proxmox_node }}/qemu/{{ item.proxmox_vmid }}/status/current
+        method: GET
+        headers:
+          Authorization: "{{ dns_health_gate_proxmox_auth_header }}"
+        validate_certs: true
+        return_content: true
+        status_code: 200
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_l1_results
+      no_log: true
+
+    - name: L1 | Validate Proxmox VM runtime status
+      ansible.builtin.assert:
+        that:
+          - item.json.data.status == "running"
+        fail_msg: >-
+          L1 FAIL — {{ item.item.name }} (VM {{ item.item.proxmox_vmid }})
+          is not running.
+        success_msg: >-
+          L1 PASS — {{ item.item.name }} (VM {{ item.item.proxmox_vmid }})
+          is running.
+      loop: "{{ dns_health_gate_l1_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    # -----------------------------------------------------------------------
+    # L2 — Guest Runtime
+    # -----------------------------------------------------------------------
+
+    - name: L2 | Query QEMU Guest Agent
+      ansible.builtin.uri:
+        url: >-
+          {{ dns_health_gate_proxmox_api_url }}/api2/json/nodes/{{
+          item.proxmox_node }}/qemu/{{ item.proxmox_vmid }}/agent/ping
+        method: POST
+        headers:
+          Authorization: "{{ dns_health_gate_proxmox_auth_header }}"
+        validate_certs: true
+        return_content: true
+        status_code: 200
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_l2_results
+      no_log: true
+
+    - name: L2 | Validate QEMU Guest Agent response
+      ansible.builtin.assert:
+        that:
+          - item.json.data.result is defined
+          - item.json.data.result | length == 0
+        fail_msg: >-
+          L2 FAIL — {{ item.item.name }} (VM {{ item.item.proxmox_vmid }})
+          QEMU Guest Agent did not return the expected ping response.
+        success_msg: >-
+          L2 PASS — {{ item.item.name }} (VM {{ item.item.proxmox_vmid }})
+          QEMU Guest Agent is responsive.
+      loop: "{{ dns_health_gate_l2_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    # -----------------------------------------------------------------------
+    # L3 — Application Runtime
+    # -----------------------------------------------------------------------
+
+    - name: L3 | Query Technitium HTTP endpoint
+      ansible.builtin.uri:
+        url: "http://{{ item.address }}:5380/"
+        method: GET
+        return_content: false
+        status_code: 200
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_l3_results
+
+    - name: L3 | Validate Technitium HTTP endpoint
+      ansible.builtin.assert:
+        that:
+          - item.status == 200
+        fail_msg: >-
+          L3 FAIL — {{ item.item.name }} ({{ item.item.address }})
+          Technitium HTTP endpoint did not return HTTP 200.
+        success_msg: >-
+          L3 PASS — {{ item.item.name }} ({{ item.item.address }})
+          Technitium HTTP endpoint returned HTTP 200.
+      loop: "{{ dns_health_gate_l3_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    # -----------------------------------------------------------------------
+    # L4/L5 — DNS Transport and Authoritative Service
+    # -----------------------------------------------------------------------
+
+    - name: L4-L5 | Query authoritative canary over UDP
+      ansible.builtin.command:
+        argv:
+          - dig
+          - "@{{ item.address }}"
+          - "{{ dns_health_gate_authoritative_name }}"
+          - A
+          - +noall
+          - +comments
+          - +answer
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_authoritative_udp
+      changed_when: false
+
+    - name: L4-L5 | Query authoritative canary over TCP
+      ansible.builtin.command:
+        argv:
+          - dig
+          - "@{{ item.address }}"
+          - "{{ dns_health_gate_authoritative_name }}"
+          - A
+          - +tcp
+          - +noall
+          - +comments
+          - +answer
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_authoritative_tcp
+      changed_when: false
+
+    - name: L4 | Validate DNS transport over UDP
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+          - "'status: NOERROR' in item.stdout"
+        fail_msg: >-
+          L4 FAIL — {{ item.item.name }} ({{ item.item.address }})
+          did not successfully answer the authoritative canary query over UDP.
+        success_msg: >-
+          L4 PASS — {{ item.item.name }} ({{ item.item.address }})
+          answered DNS over UDP.
+      loop: "{{ dns_health_gate_authoritative_udp.results }}"
+      loop_control:
+        label: "{{ item.item.name }} UDP"
+
+    - name: L4 | Validate DNS transport over TCP
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+          - "'status: NOERROR' in item.stdout"
+        fail_msg: >-
+          L4 FAIL — {{ item.item.name }} ({{ item.item.address }})
+          did not successfully answer the authoritative canary query over TCP.
+        success_msg: >-
+          L4 PASS — {{ item.item.name }} ({{ item.item.address }})
+          answered DNS over TCP.
+      loop: "{{ dns_health_gate_authoritative_tcp.results }}"
+      loop_control:
+        label: "{{ item.item.name }} TCP"
+
+    - name: L5 | Validate authoritative DNS service
+      ansible.builtin.assert:
+        that:
+          - "'status: NOERROR' in item.stdout"
+          - >-
+            ' aa ' in (
+              item.stdout_lines
+              | select('match', '^;; flags:')
+              | first
+            )
+          - >-
+            'ANSWER: 1,' in (
+              item.stdout_lines
+              | select('match', '^;; flags:')
+              | first
+            )
+          - >-
+            item.stdout is regex(
+              '(?m)^' ~
+              (dns_health_gate_authoritative_name | regex_escape) ~
+              '\\.\\s+\\d+\\s+IN\\s+A\\s+' ~
+              (dns_health_gate_authoritative_address | regex_escape) ~
+              '\\s*$'
+            )
+        fail_msg: >-
+          L5 FAIL — {{ item.item.name }} ({{ item.item.address }})
+          did not return the expected authoritative canary response.
+        success_msg: >-
+          L5 PASS — {{ item.item.name }} ({{ item.item.address }})
+          returned the expected authoritative canary response.
+      loop: "{{ dns_health_gate_authoritative_udp.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    # -----------------------------------------------------------------------
+    # L6 — Recursive DNS Service
+    # -----------------------------------------------------------------------
+
+    - name: L6 | Query recursive DNS service
+      ansible.builtin.command:
+        argv:
+          - dig
+          - "@{{ item.address }}"
+          - "{{ dns_health_gate_recursive_name }}"
+          - A
+          - +noall
+          - +comments
+          - +answer
+      loop: "{{ dns_health_gate_selected_instances }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: dns_health_gate_recursive_results
+      changed_when: false
+
+    - name: L6 | Validate recursive DNS service
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+          - "'status: NOERROR' in item.stdout"
+
+          # Recursion Available must be present in the DNS flag set.
+          - >-
+            'ra' in (
+              (
+                item.stdout_lines
+                | select('match', '^;; flags:')
+                | first
+              )
+              | regex_replace('^;; flags:\\s*', '')
+              | regex_replace(';.*$', '')
+            ).split()
+
+          # Authoritative Answer must not be present in the DNS flag set.
+          - >-
+            'aa' not in (
+              (
+                item.stdout_lines
+                | select('match', '^;; flags:')
+                | first
+              )
+              | regex_replace('^;; flags:\\s*', '')
+              | regex_replace(';.*$', '')
+            ).split()
+
+          # At least one A record for the requested external name
+          # must be present. The returned address itself is intentionally
+          # not part of the health contract.
+          - >-
+            item.stdout is regex(
+              '(?m)^' ~
+              (dns_health_gate_recursive_name | regex_escape) ~
+              '\\.\\s+\\d+\\s+IN\\s+A\\s+[0-9.]+\\s*$'
+            )
+        fail_msg: >-
+          L6 FAIL — {{ item.item.name }} ({{ item.item.address }})
+          did not satisfy the recursive DNS service contract.
+
+        success_msg: >-
+          L6 PASS — {{ item.item.name }} ({{ item.item.address }})
+          satisfied the recursive DNS service contract.
+
+      loop: "{{ dns_health_gate_recursive_results.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
