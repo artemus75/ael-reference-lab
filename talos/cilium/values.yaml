@@ -1,0 +1,121 @@
+# Cilium configuration for the Talos Homelab cluster.
+#
+# Talos Linux: 1.13.8
+# Kubernetes: 1.36.2
+# Cilium: 1.20.1
+#
+# Architecture:
+# - kube-proxy-free
+# - Kubernetes host-scope IPAM
+# - IPv4 only
+# - Cilium tunnel routing
+# - Kubernetes API access through Talos KubePrism
+
+ipam:
+  mode: kubernetes
+
+kubeProxyReplacement: true
+
+k8sServiceHost: localhost
+k8sServicePort: 7445
+
+ipv4:
+  enabled: true
+
+ipv6:
+  enabled: false
+
+routingMode: tunnel
+
+bpf:
+  hostLegacyRouting: true
+
+enableLBIPAM: true
+
+cgroup:
+  autoMount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+
+securityContext:
+  capabilities:
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE
+
+l2announcements:
+  enabled: true
+
+k8sClientRateLimit:
+  qps: 10
+  burst: 20
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    trustCRDsExist: true
+    labels:
+      release: monitoring
+
+dashboards:
+  enabled: true
+  namespace: monitoring
+
+operator:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: monitoring
+
+  dashboards:
+    enabled: true
+    namespace: monitoring
+
+hubble:
+  enabled: true
+
+  metrics:
+    enableOpenMetrics: true
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - icmp
+      - port-distribution
+    serviceMonitor:
+      enabled: true
+      labels:
+        release: monitoring
+
+    dashboards:
+      enabled: true
+      namespace: monitoring
+
+  relay:
+    enabled: true
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+        labels:
+          release: monitoring
+
+  ui:
+    enabled: true

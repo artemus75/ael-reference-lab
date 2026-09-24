@@ -1,0 +1,10 @@
+cluster:
+  network:
+    cni:
+      name: none
+    podSubnets:
+      - 10.45.0.0/16
+    serviceSubnets:
+      - 10.112.0.0/16
+
+  allowSchedulingOnControlPlanes: true

@@ -1,0 +1,8 @@
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: talos-lb-pool
+spec:
+  blocks:
+    - start: 203.0.113.200
+      stop: 192.0.2.220

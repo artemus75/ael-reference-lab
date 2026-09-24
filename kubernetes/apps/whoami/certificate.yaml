@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: whoami
+  namespace: whoami
+spec:
+  secretName: whoami-tls
+  dnsNames:
+    - whoami.k8s.example.invalid
+  issuerRef:
+    name: public-example-issuer
+    kind: ClusterIssuer

@@ -1,0 +1,52 @@
+# Cilium 1.20.1 — Talos Management Cluster
+#
+# ADR-MP-004:
+# - Cilium provides CNI and NetworkPolicy.
+# - Kubernetes kube-proxy remains enabled.
+# - Hubble and advanced Cilium platform features are intentionally disabled.
+# - Management cluster is single-node and non-HA.
+#
+# Talos-specific:
+# - SYS_MODULE must not be requested by Kubernetes workloads.
+# - Reuse Talos' existing cgroupv2 mount.
+
+k8sServiceHost: "198.51.100.10"
+k8sServicePort: "6443"
+
+kubeProxyReplacement: "false"
+
+ipam:
+  mode: kubernetes
+
+enableLBIPAM: false
+defaultLBServiceIPAM: none
+
+hubble:
+  enabled: false
+
+operator:
+  replicas: 1
+
+cgroup:
+  autoMount:
+    enabled: false
+  hostRoot: /sys/fs/cgroup
+
+securityContext:
+  capabilities:
+    ciliumAgent:
+      - CHOWN
+      - KILL
+      - NET_ADMIN
+      - NET_RAW
+      - IPC_LOCK
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    cleanCiliumState:
+      - NET_ADMIN
+      - SYS_ADMIN
+      - SYS_RESOURCE

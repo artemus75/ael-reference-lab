@@ -1,0 +1,4 @@
+apiVersion: v1alpha1
+kind: ResolverConfig
+nameservers:
+  - address: 192.0.2.1

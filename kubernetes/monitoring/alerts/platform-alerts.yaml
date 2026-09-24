@@ -1,0 +1,98 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: cert-manager
+      rules:
+        - alert: CertManagerCertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="True"} == 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "cert-manager certificate is not Ready"
+            description: >-
+              Certificate {{ $labels.exported_namespace }}/{{ $labels.name }}
+              has not been Ready for at least 10 minutes.
+
+        - alert: CertManagerCertificateExpiringSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 1209600
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "cert-manager certificate expires within 14 days"
+            description: >-
+              Certificate {{ $labels.exported_namespace }}/{{ $labels.name }}
+              expires within 14 days.
+
+        - alert: CertManagerCertificateExpiringCritical
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 604800
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: "cert-manager certificate expires within 7 days"
+            description: >-
+              Certificate {{ $labels.exported_namespace }}/{{ $labels.name }}
+              expires within 7 days.
+
+    - name: cilium-hubble
+      rules:
+        - alert: CiliumControllersFailing
+          expr: cilium_controllers_failing > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Cilium controller failure detected"
+            description: >-
+              Cilium reports failing controllers on {{ $labels.node }}.
+
+        - alert: HubbleRelayPeersMissing
+          expr: hubble_relay_pool_peer_connection_status{status="READY"} < 6
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Hubble Relay is missing node peers"
+            description: >-
+              Hubble Relay currently has only {{ $value }} READY peers;
+              six are expected for this cluster.
+
+    - name: velero
+      rules:
+        - alert: VeleroBackupLocationUnavailable
+          expr: velero_backup_location_status_gauge != 1
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Velero backup location is unavailable"
+            description: >-
+              Velero backup location {{ $labels.backup_location_name }}
+              has been unhealthy for at least 10 minutes.
+
+        - alert: VeleroBackupFailed
+          expr: increase(velero_backup_failure_total[1h]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "Velero backup failed"
+            description: >-
+              Velero reported one or more failed backups during the last hour.
+
+        - alert: VeleroBackupPartiallyFailed
+          expr: increase(velero_backup_partial_failure_total[1h]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: "Velero backup partially failed"
+            description: >-
+              Velero reported one or more partially failed backups during
+              the last hour.

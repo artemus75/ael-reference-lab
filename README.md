@@ -19,6 +19,13 @@ environment-specific operations.
 
 | Area | Path | Purpose |
 | --- | --- | --- |
+| Talos workload cluster IaC | `tofu/` | Example Proxmox-backed Talos Kubernetes cluster foundation. |
+| Management Plane IaC | `tofu/management/` | Example Management Plane VM and data-disk foundation. |
+| Talos cluster patches | `talos/patches/` | Public Talos patches for control-plane and worker nodes. |
+| Management Plane patches | `talos/management/patches/` | Public Talos patches for the Management Plane. |
+| Cilium configuration | `talos/cilium/`, `talos/management/cilium/` | Cilium and LoadBalancer examples for both clusters. |
+| GitOps layout | `clusters/`, `platform/` | Minimal Flux/Kustomize structure for platform resources. |
+| Platform examples | `kubernetes/` | Selected storage, alerting, and validation workload examples. |
 | OpenTofu shared infrastructure | `tofu/shared-infrastructure/` | Example Proxmox-backed DNS/C3 infrastructure module. |
 | DNS automation | `ansible/roles/technitium/` | Technitium DNS installation and authoritative zone automation. |
 | DNS playbooks | `ansible/playbooks/` | Public playbooks for DNS baseline, inspection, reconciliation, and health gates. |
@@ -31,13 +38,16 @@ environment-specific operations.
 
 The example topology uses documentation-safe values:
 
+- workload Kubernetes API VIP: `192.0.2.10`
+- workload nodes: `192.0.2.11-192.0.2.23`
+- Management Plane API VIP: `198.51.100.10`
+- Management Plane node: `198.51.100.11`
+- LoadBalancer example pool: `203.0.113.200-203.0.113.220`
 - DNS cluster nodes: `dns-01`, `dns-02`
 - DNS lab nodes: `dns-lab-01`, `dns-lab-02`
-- Example domain: `example.invalid`
-- Example infrastructure zone: `infra.example.invalid`
-- Example Kubernetes zone: `k8s.example.invalid`
-- Example address range: `192.0.2.0/24`
-- Example service address range: `198.51.100.0/24`
+- example domain: `example.invalid`
+- example infrastructure zone: `infra.example.invalid`
+- example Kubernetes zone: `k8s.example.invalid`
 
 Replace these values before using the examples in your own environment.
 
@@ -52,6 +62,7 @@ The examples intentionally exclude:
 - local inventory files
 - OpenTofu state and plan files
 - generated Talos machine configuration
+- Talos secrets and PKI material
 - kubeconfig and talosconfig files
 
 Use the provided `*.example.*` files as templates and keep local copies ignored
@@ -59,11 +70,14 @@ by Git.
 
 ## Getting Started
 
-1. Review `docs/guides/dns-c3-reference.md`.
-2. Copy the example OpenTofu variables and replace placeholder values.
-3. Copy the example Ansible inventory and group variables.
-4. Provide secrets through environment variables or Ansible Vault.
-5. Run the lifecycle steps incrementally and validate each step before moving on.
+1. Review `docs/guides/talos-cluster-reference.md`.
+2. Review `docs/guides/management-plane-reference.md`.
+3. Review `docs/runbooks/talos-bootstrap-public-runbook.md`.
+4. Adapt the OpenTofu example variables for your Proxmox environment.
+5. Generate Talos secrets outside the repository.
+6. Generate machine configs from the public Talos patches.
+7. Bootstrap the workload cluster and Management Plane.
+8. Review `docs/guides/dns-c3-reference.md` for DNS/C3 automation.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.

@@ -1,0 +1,11 @@
+localpv:
+  privileged: true
+
+  nodeDeployment:
+    enabled: true
+
+  nodeSelector:
+    storage.ael-reference-lab/local-db: "true"
+
+hostpathClass:
+  enabled: false

@@ -1,0 +1,9 @@
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-db
+provisioning:
+  diskSelector:
+    match: disk.transport == 'virtio' && disk.size < 42949672960u
+  minSize: 30GB
+filesystem:
+  type: xfs
