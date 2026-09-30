@@ -125,7 +125,7 @@ The public contract is:
 
 ```text
 Pinned Debian source
-  -> Packer build
+  -> Packer build [architecture model; build definition not public here]
   -> image acceptance
   -> versioned artifact + SHA256
   -> verified local artifact cache
@@ -154,6 +154,9 @@ ansible/inventories/prod/group_vars/dns_servers/vars.example.yml
 
 ansible/inventories/prod/group_vars/management_hosts/vars.example.yml
   -> ansible/inventories/prod/group_vars/management_hosts/vars.yml
+
+ansible/inventories/prod/group_vars/all/vault.example.yml
+  -> ansible/inventories/prod/group_vars/all/vault.yml
 ```
 
 Keep these local files out of Git.
@@ -166,7 +169,7 @@ The Proxmox API token value is not represented in the examples. Supply it throug
 export TF_VAR_proxmox_api_token='REPLACE_WITH_LOCAL_SECRET'
 ```
 
-Technitium and health-gate credentials should be supplied through Ansible Vault or another local secret mechanism.
+Technitium and health-gate credentials should be supplied through Ansible Vault or another local secret mechanism. The repository provides `ansible/inventories/prod/group_vars/all/vault.example.yml` as the variable-name contract only; copy it to `vault.yml`, replace the placeholders, and encrypt the local file before use.
 
 Do not commit Vault files, local inventory, OpenTofu state, plan files, or raw operational logs.
 
