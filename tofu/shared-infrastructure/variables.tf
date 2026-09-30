@@ -49,17 +49,17 @@ variable "dns_nodes" {
   }))
 }
 
-variable "debian_image_url" {
-  description = "Pinned Debian GenericCloud image URL."
+variable "debian_image_version" {
+  description = "Version of the validated Debian 13 Proxmox base image."
   type        = string
 }
 
 variable "debian_image_file_name" {
-  description = "Local Proxmox import filename for the pinned Debian GenericCloud image."
+  description = "Filename of the validated Debian 13 Proxmox base image."
   type        = string
 }
 
 variable "debian_image_checksum" {
-  description = "SHA512 checksum of the pinned Debian GenericCloud image."
+  description = "SHA256 checksum of the validated Debian 13 Proxmox base image."
   type        = string
 }
