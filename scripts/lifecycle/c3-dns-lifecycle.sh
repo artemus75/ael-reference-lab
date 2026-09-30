@@ -670,7 +670,7 @@ validate_target_plan_scope() {
     fi
 
     if [[ "$planned_actions" != '["update"]' ]]; then
-        log "SCOPE FAIL: action is not permitted by C3 v0.4"
+        log "SCOPE FAIL: action is not permitted by C3 v0.5"
         log "Resource: $planned_address"
         log "Actions:  $planned_actions"
         return 2
@@ -801,7 +801,7 @@ classify_change() {
 
         n|N)
             log "CLASSIFIED: NON-DISRUPTIVE"
-            log "No change will be executed by controller v0.4 validation stage"
+            log "No change will be executed by controller v0.5 validation stage"
             ;;
 
         a|A)
@@ -1095,7 +1095,7 @@ offer_verification_resume() {
 main() {
     trap cleanup EXIT
 
-    log "C3 DNS lifecycle controller v0.4"
+    log "C3 DNS lifecycle controller v0.5"
     log "Phase: DISCOVER"
 
     acquire_workflow_lock
