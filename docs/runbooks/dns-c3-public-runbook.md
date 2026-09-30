@@ -51,11 +51,18 @@ ansible/inventories/prod/group_vars/dns_servers/vars.example.yml
 
 ansible/inventories/prod/group_vars/management_hosts/vars.example.yml
   -> ansible/inventories/prod/group_vars/management_hosts/vars.yml
+
+ansible/inventories/prod/group_vars/all/vault.example.yml
+  -> ansible/inventories/prod/group_vars/all/vault.yml
 ```
 
-These files must remain untracked.
+These files must remain untracked. Replace the secret placeholders in `vault.yml` and encrypt it before use, for example:
 
-Supply the Proxmox token through the environment:
+```bash
+ansible-vault encrypt ansible/inventories/prod/group_vars/all/vault.yml
+```
+
+Supply the OpenTofu Proxmox token through the environment:
 
 ```bash
 export TF_VAR_proxmox_api_token='REPLACE_WITH_LOCAL_SECRET'
