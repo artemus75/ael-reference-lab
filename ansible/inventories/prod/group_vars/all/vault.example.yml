@@ -1,0 +1,12 @@
+---
+# Example Ansible Vault input contract for DNS/C3 automation.
+#
+# Copy to vault.yml, replace every placeholder, and encrypt the local file:
+#
+#   ansible-vault encrypt ansible/inventories/prod/group_vars/all/vault.yml
+#
+# The resulting vault.yml remains local and is ignored by Git.
+# Never commit real secret values.
+
+vault_technitium_admin_password: "REPLACE_WITH_LOCAL_SECRET"
+vault_proxmox_dns_health_token: "REPLACE_WITH_LOCAL_SECRET"
