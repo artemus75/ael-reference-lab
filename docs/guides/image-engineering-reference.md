@@ -2,7 +2,9 @@
 
 This guide defines the public base-image contract used by the shared-infrastructure OpenTofu reference implementation.
 
-It describes the reproducible architecture boundary. It does not publish the private Architecture Engineering Lab acceptance evidence, release history, or internal artifact source.
+It describes the public architecture boundary. It does not publish the private Architecture Engineering Lab acceptance evidence, release history, internal artifact source, or the Packer implementation used to build the accepted artifact.
+
+The public repository therefore starts its directly reproducible workflow at a validated, versioned QCOW2 artifact. The preceding Packer build is part of the architecture model, but it is not currently reproduced by code in this repository.
 
 ## Why the Image Is Part of the Infrastructure Contract
 
@@ -146,11 +148,11 @@ The public C3 controller must not be assumed to provide destructive replacement 
 
 ## Reproduction Contract
 
-A reader reproducing this architecture should be able to establish the following chain:
+The full engineering lifecycle is:
 
 ```text
 known image source
-  -> reproducible image build
+  -> Packer image build
   -> acceptance gates pass
   -> immutable version/checksum
   -> local integrity verification
@@ -160,6 +162,10 @@ known image source
   -> Ansible runtime reconciliation
   -> service health validation
 ```
+
+The current public repository directly reproduces the lifecycle from the accepted artifact onward. It does not currently include the Packer build definition, so it must not be used as evidence that the image-build stage itself is publicly reproducible.
+
+A reader must therefore either supply an artifact that independently satisfies IMG-A1 through IMG-A5 or implement and validate an equivalent image-build pipeline before continuing with the OpenTofu workflow.
 
 The important property is not the artifact hosting product.
 
