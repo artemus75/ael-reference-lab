@@ -5,18 +5,22 @@
 #
 # Secrets are intentionally not represented here:
 # - proxmox_api_token should be supplied through TF_VAR_proxmox_api_token.
+#
+# The validated base-image artifact is supplied out of band and placed at:
+# .build/artifacts/<version>/<filename>
+# Verify its SHA256 before running OpenTofu.
 
-proxmox_endpoint = "https://proxmox.example.invalid:8006/api2/json"
+proxmox_endpoint = "https://proxmox.example.com:8006/api2/json"
 
 proxmox_api_token_id = "tofu@pve!shared-infrastructure"
 
 gateway           = "192.0.2.1"
 dns_servers       = ["192.0.2.1"]
-dns_search_domain = "infra.example.invalid"
+dns_search_domain = "infra.example.com"
 
-debian_image_url       = "https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"
-debian_image_file_name = "debian-13-genericcloud-amd64.qcow2"
-debian_image_checksum  = "sha512:REPLACE_WITH_PINNED_IMAGE_CHECKSUM"
+debian_image_version   = "v0.1.0"
+debian_image_file_name = "debian-13-proxmox-v0.1.0.qcow2"
+debian_image_checksum  = "REPLACE_WITH_RELEASE_ARTIFACT_SHA256"
 
 dns_nodes = {
   dns-01 = {
