@@ -28,7 +28,7 @@ all:
             dns-lab-02:
               ansible_host: 192.0.2.33
           vars:
-            technitium_cluster_test_zone: "cluster-test.example.invalid"
+            technitium_cluster_test_zone: "cluster-test.example.com"
             technitium_cluster_test_primary: "dns-lab-01"
             technitium_cluster_test_primary_ip: "192.0.2.32"
             technitium_cluster_test_secondary_ip: "192.0.2.33"
