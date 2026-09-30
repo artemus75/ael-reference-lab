@@ -66,7 +66,8 @@ The examples intentionally exclude:
 - kubeconfig and talosconfig files
 
 Use the provided `*.example.*` files as templates and keep local copies ignored
-by Git.
+by Git. For DNS/C3, `ansible/inventories/prod/group_vars/all/vault.example.yml`
+defines the required Ansible secret variable names without containing secret values.
 
 ## Getting Started
 
