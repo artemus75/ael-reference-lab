@@ -31,7 +31,7 @@ environment-specific operations.
 | DNS playbooks | `ansible/playbooks/` | Public playbooks for DNS baseline, inspection, reconciliation, and health gates. |
 | Example inventory | `ansible/inventories/prod/` | Example inventory and variables using documentation-safe placeholder values. |
 | Lifecycle helper | `scripts/lifecycle/c3-dns-lifecycle.sh` | DNS/C3 lifecycle orchestration helper. |
-| Public guides | `docs/guides/` | Reproduction-oriented documentation. |
+| Public guides | `docs/guides/` | Reproduction-oriented DNS, image-engineering, Talos, and Management Plane documentation. |
 | Public runbooks | `docs/runbooks/` | Reusable operational procedures without private lab evidence. |
 
 ## Reference Topology
@@ -45,9 +45,9 @@ The example topology uses documentation-safe values:
 - LoadBalancer example pool: `203.0.113.200-203.0.113.220`
 - DNS cluster nodes: `dns-01`, `dns-02`
 - DNS lab nodes: `dns-lab-01`, `dns-lab-02`
-- example domain: `example.invalid`
-- example infrastructure zone: `infra.example.invalid`
-- example Kubernetes zone: `k8s.example.invalid`
+- example domain: `example.com`
+- example infrastructure zone: `infra.example.com`
+- example Kubernetes zone: `k8s.example.com`
 
 Replace these values before using the examples in your own environment.
 
@@ -77,7 +77,8 @@ by Git.
 5. Generate Talos secrets outside the repository.
 6. Generate machine configs from the public Talos patches.
 7. Bootstrap the workload cluster and Management Plane.
-8. Review `docs/guides/dns-c3-reference.md` for DNS/C3 automation.
+8. Review `docs/guides/image-engineering-reference.md` for the DNS VM base-image contract.
+9. Review `docs/guides/dns-c3-reference.md` and `docs/runbooks/dns-c3-public-runbook.md` for DNS/C3 architecture and operations.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.
