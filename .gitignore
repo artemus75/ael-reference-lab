@@ -16,6 +16,9 @@ crash.*.log
 # CLI plan files
 *.tfplan
 
+# Local released image artifact cache
+tofu/**/.build/
+
 # Local override files
 override.tf
 override.tf.json
