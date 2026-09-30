@@ -1,15 +1,22 @@
-resource "proxmox_download_file" "debian_cloud_image" {
-  for_each = var.dns_nodes
+locals {
+  dns_proxmox_nodes = toset([
+    for node in values(var.dns_nodes) : node.proxmox_node
+  ])
+}
+
+resource "proxmox_virtual_environment_file" "debian_base_image" {
+  for_each = local.dns_proxmox_nodes
 
   content_type = "import"
   datastore_id = "local-storage"
-  node_name    = each.value.proxmox_node
+  node_name    = each.value
 
-  url       = var.debian_image_url
-  file_name = var.debian_image_file_name
+  source_file {
+    path = "${path.module}/.build/artifacts/${var.debian_image_version}/${var.debian_image_file_name}"
 
-  checksum           = var.debian_image_checksum
-  checksum_algorithm = "sha512"
+    file_name = var.debian_image_file_name
+    checksum  = var.debian_image_checksum
+  }
 
   overwrite = false
 }
@@ -59,7 +66,7 @@ resource "proxmox_virtual_environment_vm" "dns" {
     datastore_id = local.vm_baseline.datastore_id
     interface    = local.vm_baseline.disk_interface
 
-    import_from = proxmox_download_file.debian_cloud_image[each.key].id
+    import_from = proxmox_virtual_environment_file.debian_base_image[each.value.proxmox_node].id
 
     size     = each.value.disk_gb
     discard  = "on"
