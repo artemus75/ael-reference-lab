@@ -144,7 +144,7 @@ Changing the configured image identity does not automatically prove that existin
 
 Image upgrades and destructive replacement therefore require an explicit lifecycle decision and separate validation.
 
-The public C3 controller must not be assumed to provide destructive replacement orchestration unless its documented scope explicitly supports that action.
+The public lifecycle controller must not be assumed to provide destructive replacement orchestration unless its documented scope explicitly supports that action.
 
 ## Reproduction Contract
 
