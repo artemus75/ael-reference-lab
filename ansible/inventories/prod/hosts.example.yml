@@ -1,5 +1,5 @@
 ---
-# Example production inventory for DNS/C3 automation.
+# Example production inventory for DNS lifecycle-control automation.
 #
 # Copy to hosts.yml for local use and replace all example values.
 # Do not commit the local hosts.yml file.
