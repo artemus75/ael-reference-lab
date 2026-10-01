@@ -1,5 +1,5 @@
 ---
-# Example Ansible Vault input contract for DNS/C3 automation.
+# Example Ansible Vault input contract for DNS lifecycle-control automation.
 #
 # Copy to vault.yml, replace every placeholder, and encrypt the local file:
 #
