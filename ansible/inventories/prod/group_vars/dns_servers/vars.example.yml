@@ -1,5 +1,5 @@
 ---
-# Example DNS server group variables for DNS/C3 automation.
+# Example DNS server group variables for DNS lifecycle-control automation.
 #
 # Copy to vars.yml for local use and replace all example values.
 # Do not commit the local vars.yml file.
