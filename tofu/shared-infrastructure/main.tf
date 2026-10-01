@@ -28,7 +28,7 @@ resource "proxmox_virtual_environment_vm" "dns" {
   vm_id     = each.value.vmid
   node_name = each.value.proxmox_node
 
-  description = each.key == "dns-01" ? "Shared Infrastructure DNS Server - C3 Scope Test" : "Shared Infrastructure DNS Server"
+  description = each.key == "dns-01" ? "Shared Infrastructure DNS Server - Lifecycle Control Scope Test" : "Shared Infrastructure DNS Server"
 
   machine = local.vm_baseline.machine_type
   bios    = local.vm_baseline.bios
