@@ -125,7 +125,7 @@ The public contract is:
 
 ```text
 Pinned Debian source
-  -> Packer build [architecture model; build definition not public here]
+  -> Packer build [public implementation: `packer/debian-13-proxmox/`]
   -> image acceptance
   -> versioned artifact + SHA256
   -> verified local artifact cache

@@ -1,0 +1,2 @@
+instance-id: packer-debian-13-proxmox
+local-hostname: packer-debian-13

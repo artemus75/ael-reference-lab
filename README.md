@@ -26,6 +26,7 @@ environment-specific operations.
 | Cilium configuration | `talos/cilium/`, `talos/management/cilium/` | Cilium and LoadBalancer examples for both clusters. |
 | GitOps layout | `clusters/`, `platform/` | Minimal Flux/Kustomize structure for platform resources. |
 | Platform examples | `kubernetes/` | Selected storage, alerting, and validation workload examples. |
+| Image engineering | `packer/debian-13-proxmox/` | Reproducible Debian 13 / Proxmox base-image build, sanitization, acceptance implementation, and release metadata. |
 | OpenTofu shared infrastructure | `tofu/shared-infrastructure/` | Example Proxmox-backed DNS shared-infrastructure module. |
 | DNS automation | `ansible/roles/technitium/` | Technitium DNS installation and authoritative zone automation. |
 | DNS playbooks | `ansible/playbooks/` | Public playbooks for DNS baseline, inspection, reconciliation, and health gates. |
@@ -78,7 +79,7 @@ Start with the architecture area that matches the problem you are investigating:
 | Talos and Kubernetes foundation | [Talos Cluster Reference](docs/guides/talos-cluster-reference.md) |
 | Separate management failure domain | [Management Plane Reference](docs/guides/management-plane-reference.md) |
 | Shared-infrastructure DNS | [DNS Lifecycle Control Reference](docs/guides/dns-lifecycle-control-reference.md) |
-| Recoverability and VM bootstrap dependencies | [Image Engineering Reference](docs/guides/image-engineering-reference.md) |
+| Reproducible VM image engineering and bootstrap dependencies | [Image Engineering Reference](docs/guides/image-engineering-reference.md) and `packer/debian-13-proxmox/` |
 | Controlled change across the DNS redundancy boundary | [DNS Lifecycle Control Runbook](docs/runbooks/dns-lifecycle-control-runbook.md) |
 
 The accompanying Architecture Engineering Lab articles explain the architecture decisions and experiments behind these reference implementations. The implementation repository is intentionally narrower than the private engineering system of record.

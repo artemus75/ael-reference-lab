@@ -89,3 +89,17 @@ kubeconfig
 
 # OpenTofu plan files
 *.plan
+
+# -----------------------------------------------------------------------------
+# Packer / image engineering
+# -----------------------------------------------------------------------------
+
+# Ephemeral build credentials, accepted candidates, and local release artifacts
+packer/**/.build/
+
+# Packer-generated image candidates
+packer/**/output/
+
+# Never commit local QCOW2 image artifacts
+packer/**/*.qcow2
+packer/**/*.qcow2.sha256

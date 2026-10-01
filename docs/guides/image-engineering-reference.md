@@ -2,9 +2,9 @@
 
 This guide defines the public base-image contract used by the shared-infrastructure OpenTofu reference implementation.
 
-It describes the public architecture boundary. It does not publish the private Architecture Engineering Lab acceptance evidence, release history, internal artifact source, or the Packer implementation used to build the accepted artifact.
+It describes the public architecture boundary and includes the Packer implementation used to build the reference Debian 13 / Proxmox base image. Private Architecture Engineering Lab raw acceptance evidence, internal engineering history, and environment-specific release operations remain outside the public repository.
 
-The public repository therefore starts its directly reproducible workflow at a validated, versioned QCOW2 artifact. The preceding Packer build is part of the architecture model, but it is not currently reproduced by code in this repository.
+The public repository therefore reproduces the image-build path from a pinned Debian source through Packer build, sanitization, image inspection, and versioned artifact metadata. Historical acceptance results for the released reference artifact are published as metadata, while the underlying raw engineering evidence remains in the private system of record.
 
 ## Why the Image Is Part of the Infrastructure Contract
 
@@ -28,7 +28,9 @@ The image guarantees bootstrap availability. Ansible guarantees continued runtim
 
 ```text
 Pinned Debian 13 source
-  -> Packer build
+  -> public Packer build definition
+  -> bootstrap + cleanup
+  -> image sanitization
   -> versioned QCOW2 candidate
   -> image acceptance
   -> released artifact + SHA256
@@ -163,9 +165,9 @@ known image source
   -> service health validation
 ```
 
-The current public repository directly reproduces the lifecycle from the accepted artifact onward. It does not currently include the Packer build definition, so it must not be used as evidence that the image-build stage itself is publicly reproducible.
+The public repository includes the Packer build definition, bootstrap and cleanup logic, image sanitization, and image-inspection implementation under `packer/debian-13-proxmox/`. This makes the build stage inspectable and reproducible from the pinned upstream source.
 
-A reader must therefore either supply an artifact that independently satisfies IMG-A1 through IMG-A5 or implement and validate an equivalent image-build pipeline before continuing with the OpenTofu workflow.
+Reproducing the build does not reproduce the historical acceptance evidence for the released reference artifact. A newly built candidate must still pass the acceptance contract before it is promoted for OpenTofu consumption. The published `v0.1.0` manifest records the validated reference artifact identity and acceptance status; the underlying historical raw evidence remains in the private engineering system of record.
 
 The important property is not the artifact hosting product.
 

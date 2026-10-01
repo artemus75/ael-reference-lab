@@ -1,0 +1,34 @@
+artifact:
+  name: debian-13-proxmox
+  version: v0.1.0
+  file: debian-13-proxmox-v0.1.0.qcow2
+  format: qcow2
+  sha256: f463f98b965e6b59fc66c79879aaec9ee4b10b496ee0f4123171f57abe5afaf7
+
+source:
+  distribution: debian
+  release: "13"
+  snapshot: "20260914-2601"
+  image: generic
+  file: debian-13-generic-amd64-20260914-2601.qcow2
+  url: https://cloud.debian.org/images/cloud/trixie/20260914-2601/debian-13-generic-amd64-20260914-2601.qcow2
+  checksum_algorithm: sha512
+  checksum: a733e7d49442a03e70d03e4eb5aaf3967f3efc69ef70952f9bb10fc1ee2c4876eb95956b5ad2d31350e5fada768feb651352535fb8cd1233f61998a5a7d2e93c
+
+build:
+  packer_version: 1.16.1
+  qemu_version: 11.1.1
+  qemu_plugin_version: 1.1.6
+
+acceptance:
+  status: validated
+  evidence_scope: private-engineering-system-of-record
+  IMG-A1: PASS
+  IMG-A2: PASS
+  IMG-A3: PASS
+  IMG-A4: PASS
+  IMG-A5: PASS
+
+release:
+  distribution: github-releases
+  tag: img-debian13-proxmox-v0.1.0
