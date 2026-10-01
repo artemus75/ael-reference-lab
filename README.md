@@ -26,11 +26,11 @@ environment-specific operations.
 | Cilium configuration | `talos/cilium/`, `talos/management/cilium/` | Cilium and LoadBalancer examples for both clusters. |
 | GitOps layout | `clusters/`, `platform/` | Minimal Flux/Kustomize structure for platform resources. |
 | Platform examples | `kubernetes/` | Selected storage, alerting, and validation workload examples. |
-| OpenTofu shared infrastructure | `tofu/shared-infrastructure/` | Example Proxmox-backed DNS/C3 infrastructure module. |
+| OpenTofu shared infrastructure | `tofu/shared-infrastructure/` | Example Proxmox-backed DNS shared-infrastructure module. |
 | DNS automation | `ansible/roles/technitium/` | Technitium DNS installation and authoritative zone automation. |
 | DNS playbooks | `ansible/playbooks/` | Public playbooks for DNS baseline, inspection, reconciliation, and health gates. |
 | Example inventory | `ansible/inventories/prod/` | Example inventory and variables using documentation-safe placeholder values. |
-| Lifecycle helper | `scripts/lifecycle/c3-dns-lifecycle.sh` | DNS/C3 lifecycle orchestration helper. |
+| Lifecycle helper | `scripts/lifecycle/dns-lifecycle-controller.sh` | Guarded DNS lifecycle-control helper. |
 | Public guides | `docs/guides/` | Reproduction-oriented DNS, image-engineering, Talos, and Management Plane documentation. |
 | Public runbooks | `docs/runbooks/` | Reusable operational procedures without private lab evidence. |
 
@@ -66,10 +66,30 @@ The examples intentionally exclude:
 - kubeconfig and talosconfig files
 
 Use the provided `*.example.*` files as templates and keep local copies ignored
-by Git. For DNS/C3, `ansible/inventories/prod/group_vars/all/vault.example.yml`
+by Git. For DNS lifecycle control, `ansible/inventories/prod/group_vars/all/vault.example.yml`
 defines the required Ansible secret variable names without containing secret values.
 
-## Getting Started
+## Explore the Reference Lab
+
+Start with the architecture area that matches the problem you are investigating:
+
+| Interest | Start here |
+| --- | --- |
+| Talos and Kubernetes foundation | [Talos Cluster Reference](docs/guides/talos-cluster-reference.md) |
+| Separate management failure domain | [Management Plane Reference](docs/guides/management-plane-reference.md) |
+| Shared-infrastructure DNS | [DNS Lifecycle Control Reference](docs/guides/dns-lifecycle-control-reference.md) |
+| Recoverability and VM bootstrap dependencies | [Image Engineering Reference](docs/guides/image-engineering-reference.md) |
+| Controlled change across the DNS redundancy boundary | [DNS Lifecycle Control Runbook](docs/runbooks/dns-lifecycle-control-runbook.md) |
+
+The accompanying Architecture Engineering Lab articles explain the architecture decisions and experiments behind these reference implementations. The implementation repository is intentionally narrower than the private engineering system of record.
+
+## Architecture Engineering Lab Articles
+
+The Architecture Engineering Lab series is published on Medium:
+
+- https://medium.com/@mmelchers75
+
+## Build the Complete Reference Lab
 
 1. Review `docs/guides/talos-cluster-reference.md`.
 2. Review `docs/guides/management-plane-reference.md`.
@@ -79,7 +99,7 @@ defines the required Ansible secret variable names without containing secret val
 6. Generate machine configs from the public Talos patches.
 7. Bootstrap the workload cluster and Management Plane.
 8. Review `docs/guides/image-engineering-reference.md` for the DNS VM base-image contract.
-9. Review `docs/guides/dns-c3-reference.md` and `docs/runbooks/dns-c3-public-runbook.md` for DNS/C3 architecture and operations.
+9. Review `docs/guides/dns-lifecycle-control-reference.md` and `docs/runbooks/dns-lifecycle-control-runbook.md` for DNS architecture and lifecycle-control operations.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.
