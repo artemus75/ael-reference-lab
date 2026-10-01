@@ -26,7 +26,7 @@ The example Management Plane uses documentation-safe values:
 | Management node | `198.51.100.11` |
 | Gateway / DNS placeholder | `198.51.100.1` |
 | Pod CIDR | `10.45.0.0/16` |
-| Service CIDR | `10.112.0.0/16` |
+| Service CIDR | `10.201.0.0/16` |
 
 Replace these values with your own management network design.
 
