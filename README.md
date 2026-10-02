@@ -77,6 +77,7 @@ Start with the architecture area that matches the problem you are investigating:
 | Interest | Start here |
 | --- | --- |
 | Talos and Kubernetes foundation | [Talos Cluster Reference](docs/guides/talos-cluster-reference.md) |
+| Application validation and local persistent storage | [Application & Local Storage Reference](docs/guides/application-and-local-storage-reference.md) |
 | Separate management failure domain | [Management Plane Reference](docs/guides/management-plane-reference.md) |
 | Management Plane host recovery | [Management Plane Proxmox Host Recovery](docs/runbooks/management-plane/proxmox-host-recovery.md) |
 | Shared-infrastructure DNS | [DNS Lifecycle Control Reference](docs/guides/dns-lifecycle-control-reference.md) |
@@ -100,8 +101,9 @@ The Architecture Engineering Lab series is published on Medium:
 5. Generate Talos secrets outside the repository.
 6. Generate machine configs from the public Talos patches.
 7. Bootstrap the workload cluster and Management Plane.
-8. Review `docs/guides/image-engineering-reference.md` for the DNS VM base-image contract.
-9. Review `docs/guides/dns-lifecycle-control-reference.md` and `docs/runbooks/dns-lifecycle-control-runbook.md` for DNS architecture and lifecycle-control operations.
+8. Review `docs/guides/application-and-local-storage-reference.md` for application delivery and node-local persistent-storage patterns.
+9. Review `docs/guides/image-engineering-reference.md` for the DNS VM base-image contract.
+10. Review `docs/guides/dns-lifecycle-control-reference.md` and `docs/runbooks/dns-lifecycle-control-runbook.md` for DNS architecture and lifecycle-control operations.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.

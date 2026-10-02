@@ -6,7 +6,7 @@ metadata:
 spec:
   secretName: whoami-tls
   dnsNames:
-    - whoami.k8s.example.invalid
+    - whoami.k8s.example.com
   issuerRef:
-    name: public-example-issuer
+    name: letsencrypt-production
     kind: ClusterIssuer

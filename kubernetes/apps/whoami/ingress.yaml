@@ -7,10 +7,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - whoami.k8s.example.invalid
+        - whoami.k8s.example.com
       secretName: whoami-tls
   rules:
-    - host: whoami.k8s.example.invalid
+    - host: whoami.k8s.example.com
       http:
         paths:
           - path: /

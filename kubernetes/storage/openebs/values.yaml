@@ -5,7 +5,7 @@ localpv:
     enabled: true
 
   nodeSelector:
-    storage.ael-reference-lab/local-db: "true"
+    storage.example.com/local-db: "true"
 
 hostpathClass:
   enabled: false
