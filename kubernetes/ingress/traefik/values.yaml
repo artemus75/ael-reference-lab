@@ -1,0 +1,61 @@
+providers:
+  kubernetesCRD:
+    enabled: true
+
+  kubernetesIngress:
+    enabled: true
+    ingressClass: traefik
+
+  kubernetesGateway:
+    enabled: false
+
+ingressClass:
+  enabled: true
+  isDefaultClass: false
+  name: traefik
+
+service:
+  enabled: true
+  type: LoadBalancer
+  spec:
+    loadBalancerIP: 203.0.113.200
+
+ports:
+  web:
+    port: 8000
+    exposedPort: 80
+    expose:
+      default: true
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    port: 8443
+    exposedPort: 443
+    expose:
+      default: true
+    http:
+      tls:
+        enabled: true
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+
+    service:
+      enabled: true
+
+    disableAPICheck: true
+
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: monitoring
