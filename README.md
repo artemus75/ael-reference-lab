@@ -38,6 +38,7 @@ environment-specific operations.
 | TLS platform | `kubernetes/tls/cert-manager/` | cert-manager and ACME DNS-01 reference configuration. |
 | Backup and recovery | `kubernetes/backup/velero/` | Velero, node-agent/Kopia, external object storage, monitoring, and restore-test reference. |
 | Monitoring and alerting | `kubernetes/monitoring/` | Prometheus, Grafana, Alertmanager, platform alerts, and secured platform UI reference configuration. |
+| Management GitOps | `clusters/management/`, `platform/management/` | Flux bootstrap and Management Plane reconciliation reference. |
 
 ## Reference Topology
 
@@ -90,6 +91,7 @@ Start with the architecture area that matches the problem you are investigating:
 | Ingress, HTTPS, and certificate lifecycle | [Ingress & TLS Reference](docs/guides/ingress-and-tls-reference.md) |
 | Backup, restore, and recoverability validation | [Backup & Recovery Reference](docs/guides/backup-and-recovery-reference.md) |
 | Monitoring, dashboards, and platform alerting | [Monitoring & Alerting Reference](docs/guides/monitoring-and-alerting-reference.md) |
+| Management Plane GitOps and reconciliation | [Management GitOps Reference](docs/guides/management-gitops-reference.md) |
 
 The accompanying Architecture Engineering Lab articles explain the architecture decisions and experiments behind these reference implementations. The implementation repository is intentionally narrower than the private engineering system of record.
 
@@ -114,6 +116,7 @@ The Architecture Engineering Lab series is published on Medium:
 11. Review `docs/guides/dns-lifecycle-control-reference.md` and `docs/runbooks/dns-lifecycle-control-runbook.md` for DNS architecture and lifecycle-control operations.
 12. Review `docs/guides/backup-and-recovery-reference.md`.
 13. Review `docs/guides/monitoring-and-alerting-reference.md`.
+14. Review `docs/guides/management-gitops-reference.md`.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.
