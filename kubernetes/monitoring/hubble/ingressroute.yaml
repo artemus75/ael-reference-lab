@@ -1,0 +1,19 @@
+# ingressroute.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`hubble.k8s.example.com`)
+      kind: Rule
+      middlewares:
+        - name: hubble-ui-auth
+      services:
+        - name: hubble-ui
+          port: 80
+  tls:
+    secretName: hubble-ui-tls

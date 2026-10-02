@@ -54,17 +54,6 @@ spec:
             description: >-
               Cilium reports failing controllers on {{ $labels.node }}.
 
-        - alert: HubbleRelayPeersMissing
-          expr: hubble_relay_pool_peer_connection_status{status="READY"} < 6
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Hubble Relay is missing node peers"
-            description: >-
-              Hubble Relay currently has only {{ $value }} READY peers;
-              six are expected for this cluster.
-
     - name: velero
       rules:
         - alert: VeleroBackupLocationUnavailable
