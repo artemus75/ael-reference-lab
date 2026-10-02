@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: restore-test
+  namespace: phase3-restore-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: restore-test
+  template:
+    metadata:
+      labels:
+        app: restore-test
+      annotations:
+        backup.velero.io/backup-volumes: data
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: restore-test
+          image: alpine:3.22
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop:
+                - ALL
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+
+              if [ ! -f /data/restore-test.txt ]; then
+                cp /expected/expected.txt /data/restore-test.txt
+              fi
+
+              echo "Persistent test data:"
+              cat /data/restore-test.txt
+
+              sleep infinity
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: expected
+              mountPath: /expected
+              readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: restore-test-data
+        - name: expected
+          configMap:
+            name: restore-test-data

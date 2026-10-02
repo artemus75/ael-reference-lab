@@ -1,0 +1,28 @@
+configuration:
+  backupStorageLocation:
+    - name: default
+      provider: aws
+      bucket: example-kubernetes-backup
+      backupSyncPeriod: 6h
+      validationFrequency: 1h
+      config:
+        region: eu-central-003
+        s3ForcePathStyle: "true"
+        s3Url: https://s3.eu-central-003.backblazeb2.com
+
+  defaultRepoMaintainFrequency: 24h
+
+credentials:
+  existingSecret: velero-credentials
+  useSecret: true
+
+snapshotsEnabled: false
+
+deployNodeAgent: true
+
+initContainers:
+  - name: velero-plugin-for-aws
+    image: velero/velero-plugin-for-aws:v1.14.3-rc.1
+    volumeMounts:
+      - mountPath: /target
+        name: plugins
