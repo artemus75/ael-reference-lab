@@ -1,0 +1,7 @@
+---
+- name: Configure management control-path bootstrap
+  hosts: management_hosts
+  gather_facts: true
+
+  roles:
+    - management_bootstrap

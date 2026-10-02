@@ -1,0 +1,9 @@
+---
+- name: Configure Proxmox API bootstrap name resolution
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: "^\\s*[0-9a-fA-F:.]+\\s+{{ management_bootstrap_proxmox_api_host | regex_escape }}(?:\\s|$)"
+    line: "{{ management_bootstrap_proxmox_api_address }} {{ management_bootstrap_proxmox_api_host }}"
+    state: present
+    backup: true
+  become: true

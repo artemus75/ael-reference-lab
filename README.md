@@ -78,6 +78,7 @@ Start with the architecture area that matches the problem you are investigating:
 | --- | --- |
 | Talos and Kubernetes foundation | [Talos Cluster Reference](docs/guides/talos-cluster-reference.md) |
 | Separate management failure domain | [Management Plane Reference](docs/guides/management-plane-reference.md) |
+| Management Plane host recovery | [Management Plane Proxmox Host Recovery](docs/runbooks/management-plane/proxmox-host-recovery.md) |
 | Shared-infrastructure DNS | [DNS Lifecycle Control Reference](docs/guides/dns-lifecycle-control-reference.md) |
 | Reproducible VM image engineering and bootstrap dependencies | [Image Engineering Reference](docs/guides/image-engineering-reference.md) and `packer/debian-13-proxmox/` |
 | Controlled change across the DNS redundancy boundary | [DNS Lifecycle Control Runbook](docs/runbooks/dns-lifecycle-control-runbook.md) |

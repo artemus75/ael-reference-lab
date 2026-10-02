@@ -13,6 +13,8 @@ The public reference includes:
 - Talos patches for the Management Plane node
 - Cilium values for the Management Plane Kubernetes API endpoint
 - a GitOps entrypoint for management platform resources
+- an Ansible bootstrap path for management access to the Proxmox API
+- a reusable Proxmox host recovery runbook for the Management Plane
 
 Generated configuration and runtime credentials are excluded.
 
@@ -42,6 +44,43 @@ Replace these values with your own management network design.
 8. Bootstrap Kubernetes.
 9. Install Cilium with `talos/management/cilium/values.yaml`.
 10. Apply management GitOps resources after replacing placeholder repository URLs.
+
+## Management Bootstrap Control Path
+
+Management automation can depend on infrastructure services that it may itself
+need to inspect or recover. DNS is one example of this dependency.
+
+The public reference therefore includes a small bootstrap mechanism under:
+
+- `ansible/playbooks/management-bootstrap.yml`
+- `ansible/roles/management_bootstrap/`
+
+The role establishes explicit local name resolution for the Proxmox API endpoint
+on the management automation host. The hostname and address are supplied through
+the example inventory variables rather than embedded in the role.
+
+This creates a narrow bootstrap dependency:
+
+```text
+management automation host
+        ↓
+local bootstrap name resolution
+        ↓
+Proxmox API
+        ↓
+infrastructure inspection / recovery
+```
+
+It is not intended to replace normal DNS resolution. Its purpose is to prevent
+the management control path from depending entirely on the DNS service that the
+same automation may need to inspect or recover.
+
+Example variables are defined in:
+
+`ansible/inventories/prod/group_vars/management_hosts/vars.example.yml`
+
+Environment-specific values belong in the corresponding untracked local
+variables file.
 
 ## Storage Boundary
 
