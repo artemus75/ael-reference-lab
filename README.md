@@ -1,3 +1,5 @@
+![Architecture Engineering Lab — Reference Lab](docs/assets/ael-reference-lab-hero.png)
+
 ## AEL Reference Lab
 
 Public reference implementation for selected parts of the Architecture
