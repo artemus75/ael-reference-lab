@@ -40,6 +40,7 @@ environment-specific operations.
 | Monitoring and alerting | `kubernetes/monitoring/` | Prometheus, Grafana, Alertmanager, platform alerts, and secured platform UI reference configuration. |
 | Management GitOps | `clusters/management/`, `platform/management/` | Flux bootstrap and Management Plane reconciliation reference. |
 | External NFS storage | `kubernetes/storage/nfs/` | NFS CSI StorageClass and RWX validation workload for externally backed persistent data. |
+| Stateful application | `kubernetes/apps/nextcloud/` | Nextcloud reference workload combining local storage, shared NFS data, PostgreSQL, Redis, TLS, and backup intent. |
 
 ## Reference Topology
 
@@ -94,6 +95,7 @@ Start with the architecture area that matches the problem you are investigating:
 | Monitoring, dashboards, and platform alerting | [Monitoring & Alerting Reference](docs/guides/monitoring-and-alerting-reference.md) |
 | Management Plane GitOps and reconciliation | [Management GitOps Reference](docs/guides/management-gitops-reference.md) |
 | External shared storage and NFS CSI | [NFS Storage Reference](docs/guides/nfs-storage-reference.md) |
+| Stateful application architecture | [Stateful Application Reference](docs/guides/stateful-application-reference.md) |
 
 The accompanying Architecture Engineering Lab articles explain the architecture decisions and experiments behind these reference implementations. The implementation repository is intentionally narrower than the private engineering system of record.
 
@@ -120,6 +122,7 @@ The Architecture Engineering Lab series is published on Medium:
 13. Review `docs/guides/backup-and-recovery-reference.md`.
 14. Review `docs/guides/monitoring-and-alerting-reference.md`.
 15. Review `docs/guides/management-gitops-reference.md`.
+16. Review `docs/guides/stateful-application-reference.md` for the stateful application integration pattern.
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.

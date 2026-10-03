@@ -1,0 +1,12 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nextcloud
+  namespace: nextcloud
+spec:
+  secretName: nextcloud-tls
+  dnsNames:
+    - nextcloud.k8s.example.com
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer

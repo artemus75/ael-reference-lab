@@ -1,0 +1,152 @@
+nextcloud:
+  host: nextcloud.k8s.example.com
+
+  existingSecret:
+    enabled: true
+    secretName: nextcloud-admin
+    usernameKey: nextcloud-username
+    passwordKey: nextcloud-password
+
+  datadir: /var/www/html/data
+
+  trustedDomains:
+    - nextcloud.k8s.example.com
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - SETGID
+        - SETUID
+    seccompProfile:
+      type: RuntimeDefault
+
+  podSecurityContext:
+    fsGroup: 33
+    seccompProfile:
+      type: RuntimeDefault
+
+  postgreSqlInitContainer:
+    securityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+externalDatabase:
+  enabled: true
+  type: postgresql
+  database: nextcloud
+  user: nextcloud
+
+  existingSecret:
+    enabled: true
+    secretName: nextcloud-postgresql
+    usernameKey: username
+    passwordKey: password
+
+internalDatabase:
+  enabled: false
+
+podAnnotations:
+  backup.velero.io/backup-volumes: "nextcloud-main,nextcloud-data"
+
+postgresql:
+  enabled: true
+
+  global:
+    postgresql:
+      auth:
+        username: nextcloud
+        database: nextcloud
+        existingSecret: nextcloud-postgresql
+        secretKeys:
+          adminPasswordKey: postgres-password
+          userPasswordKey: password
+
+  primary:
+    podAnnotations:
+      backup.velero.io/backup-volumes: "db-backup"
+
+    persistence:
+      enabled: true
+      storageClass: local-db
+      size: 8Gi
+
+    extraVolumes:
+      - name: db-backup
+        persistentVolumeClaim:
+          claimName: nextcloud-postgresql-backup
+
+    extraVolumeMounts:
+      - name: db-backup
+        mountPath: /backup
+
+redis:
+  enabled: true
+  architecture: standalone
+
+  auth:
+    enabled: true
+    existingSecret: nextcloud-redis
+    existingSecretPasswordKey: redis-password
+
+  master:
+    persistence:
+      enabled: false
+
+  replica:
+    replicaCount: 0
+    persistence:
+      enabled: false
+
+ingress:
+  enabled: false
+
+persistence:
+  enabled: true
+  storageClass: local-app
+  accessMode: ReadWriteOnce
+  size: 8Gi
+
+  nextcloudData:
+    enabled: true
+    storageClass: nfs-csi
+    accessMode: ReadWriteMany
+    size: 20Gi
+
+cronjob:
+  enabled: true
+  type: cronjob
+
+  cronjob:
+    schedule: "*/5 * * * *"
+
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+metrics:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
