@@ -126,3 +126,9 @@ The Architecture Engineering Lab series is published on Medium:
 
 This repository is deliberately conservative: examples are promoted only after
 sanitization and explicit review.
+
+## License
+
+This reference implementation is licensed under the Apache License 2.0.
+
+See [LICENSE](LICENSE) for the complete license terms.
